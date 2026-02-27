@@ -9,6 +9,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 option(AXIOM_BUILD_SANDBOX "Build sandbox executable" ON)
 option(AXIOM_USE_BULLET "Use Bullet backend" OFF)
 option(AXIOM_FETCH_DEPS "Fetch dependencies via FetchContent" ON)
+option(AXIOM_BUILD_TESTS "Build lightweight ECS tests" ON)
 
 if(MSVC)
   add_compile_options(/W4 /permissive- /Zc:preprocessor)
@@ -85,4 +86,12 @@ if(AXIOM_BUILD_SANDBOX)
   add_executable(AxiomSandbox Sandbox/main.cpp)
   target_link_libraries(AxiomSandbox PRIVATE AxiomEngine)
   target_compile_definitions(AxiomSandbox PRIVATE AXIOM_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/Sandbox")
+endif()
+
+if(AXIOM_BUILD_TESTS)
+  add_executable(AxiomEcsTests
+    AxiomEngine/ecs/ECSWorld.cpp
+    tests/ECSWorldTests.cpp
+  )
+  target_include_directories(AxiomEcsTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 endif()

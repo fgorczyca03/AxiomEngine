@@ -85,10 +85,10 @@ void ECSWorld::MoveEntityToSignature(Entity entity, const Signature& target, std
     }
 
     const auto sourceIndex = locIt->second.archetypeIndex;
-    auto sourceRow = locIt->second.row;
-    auto& source = MutableArchetype(sourceIndex);
+    const auto sourceRow = locIt->second.row;
 
     const auto targetIndex = FindOrCreateArchetype(target);
+    auto& source = MutableArchetype(sourceIndex);
     auto& destination = MutableArchetype(targetIndex);
 
     const std::size_t destinationRow = destination.entities.size();

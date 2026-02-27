@@ -71,8 +71,18 @@ template <typename T, typename... Args> T& ECSWorld::EmplaceComponent(Entity ent
 }
 
 template <typename T> void ECSWorld::RemoveComponent(Entity entity) {
-    Signature target = GetSignature(entity);
-    target.reset(ComponentType<T>());
+    const auto locIt = locations_.find(entity);
+    if (locIt == locations_.end()) {
+        return;
+    }
+
+    const auto componentId = ComponentType<T>();
+    if (!locIt->second.signature.test(componentId)) {
+        return;
+    }
+
+    Signature target = locIt->second.signature;
+    target.reset(componentId);
     MoveEntityToSignature(entity, target, std::nullopt);
 }
 
