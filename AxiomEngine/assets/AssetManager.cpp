@@ -41,9 +41,15 @@ std::shared_ptr<MeshAsset> AssetManager::LoadGLTFMesh(const std::string& path) {
     tinygltf::TinyGLTF loader;
     std::string errors;
     std::string warnings;
-    const bool loaded = loader.LoadASCIIFromFile(&model, &errors, &warnings, path);
+    bool loaded = loader.LoadASCIIFromFile(&model, &errors, &warnings, path);
+    if (!loaded) {
+        loaded = loader.LoadBinaryFromFile(&model, &errors, &warnings, path);
+    }
 
     auto mesh = std::make_shared<MeshAsset>();
+    (void)warnings;
+    (void)errors;
+
     if (!loaded || model.meshes.empty() || model.meshes.front().primitives.empty()) {
         meshCache_[path] = mesh;
         return mesh;

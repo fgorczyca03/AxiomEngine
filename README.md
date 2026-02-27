@@ -37,3 +37,8 @@ cmake --build build -j
 - `ForEach` establishes exact read/write component sets per system.
 - Scene, physics, scripting, and rendering are ordered in an explicit pipeline.
 - No singleton subsystems means scheduler/job graph migration can be performed incrementally.
+
+
+## Script Contract
+
+Lua scripts expose `Update(entity, dt, transform)`. The `transform` table can be mutated in-place (`x/y/z`), and return value can be either a yaw delta number or an output table override.

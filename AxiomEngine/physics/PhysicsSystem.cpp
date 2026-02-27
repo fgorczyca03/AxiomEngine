@@ -29,7 +29,8 @@ void PhysicsSystem::Step(ecs::ECSWorld& world, float dt) {
     std::vector<BodyView> bodies;
 
     world.ForEach<scene::TransformComponent, RigidBodyComponent>([&](ecs::Entity entity, scene::TransformComponent& transform, RigidBodyComponent& body) {
-        const glm::vec3 acceleration = body.force / body.mass;
+        const float safeMass = body.mass > 0.0001F ? body.mass : 1.0F;
+        const glm::vec3 acceleration = body.force / safeMass;
         body.velocity += acceleration * dt;
         transform.local.translation += body.velocity * dt;
         body.force = glm::vec3{0.0F};

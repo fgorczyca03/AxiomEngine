@@ -30,6 +30,10 @@ template <typename T> void ECSWorld::RegisterComponent() {
         return;
     }
 
+    if (nextComponentId_ >= MaxComponents) {
+        throw std::runtime_error("Exceeded MaxComponents limit");
+    }
+
     const std::size_t id = nextComponentId_++;
     auto [it, _] = componentByType_.emplace(
         key,
@@ -94,7 +98,10 @@ template <typename T> const T* ECSWorld::GetComponent(Entity entity) const {
 
 template <typename... Ts, typename Fn> void ECSWorld::ForEach(Fn&& fn) {
     Signature required{};
-    (required.set(ComponentType<Ts>()), ...);
+    const auto componentIds = std::array<std::size_t, sizeof...(Ts)>{ComponentType<Ts>()...};
+    for (const auto id : componentIds) {
+        required.set(id);
+    }
 
     for (auto& archetype : archetypes_) {
         if ((archetype.signature & required) != required) {
