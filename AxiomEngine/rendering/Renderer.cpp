@@ -29,11 +29,22 @@ bool Renderer::Initialize(int width, int height, const char* title) {
     }
 
     glfwMakeContextCurrent(window_);
-    (void)gladLoadGL(glfwGetProcAddress);
+    if (gladLoadGL(glfwGetProcAddress) == 0) {
+        glfwDestroyWindow(window_);
+        window_ = nullptr;
+        glfwTerminate();
+        return false;
+    }
 
     glEnable(GL_DEPTH_TEST);
     camera_.SetPerspective(glm::pi<float>() * 0.25F, static_cast<float>(width) / static_cast<float>(height), 0.1F, 500.0F);
-    shader_.LoadFromFiles(std::string(AXIOM_ASSET_ROOT) + "/shaders/basic.vert", std::string(AXIOM_ASSET_ROOT) + "/shaders/basic.frag");
+    if (!shader_.LoadFromFiles(std::string(AXIOM_ASSET_ROOT) + "/shaders/basic.vert", std::string(AXIOM_ASSET_ROOT) + "/shaders/basic.frag")) {
+        glfwDestroyWindow(window_);
+        window_ = nullptr;
+        glfwTerminate();
+        return false;
+    }
+
     cube_.BuildCube();
     return true;
 }

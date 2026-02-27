@@ -16,6 +16,8 @@ else()
   add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 endif()
 
+set(AXIOM_LUA_TARGET lua)
+
 if(AXIOM_FETCH_DEPS)
   include(FetchContent)
 
@@ -43,6 +45,7 @@ else()
   find_package(sol2 REQUIRED)
   find_package(Lua REQUIRED)
   find_path(TINYGLTF_INCLUDE_DIR tiny_gltf.h REQUIRED)
+  set(AXIOM_LUA_TARGET ${LUA_LIBRARIES})
 endif()
 
 if(AXIOM_USE_BULLET)
@@ -71,7 +74,7 @@ else()
   target_include_directories(AxiomEngine PUBLIC ${TINYGLTF_INCLUDE_DIR})
 endif()
 
-target_link_libraries(AxiomEngine PUBLIC glfw glad glm sol2 lua)
+target_link_libraries(AxiomEngine PUBLIC glfw glad glm sol2 ${AXIOM_LUA_TARGET})
 
 if(AXIOM_USE_BULLET)
   target_compile_definitions(AxiomEngine PUBLIC AXIOM_USE_BULLET=1)

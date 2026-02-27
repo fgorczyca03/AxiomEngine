@@ -10,6 +10,8 @@
 #define AXIOM_HAS_STB_IMAGE 0
 #endif
 
+#include <cstddef>
+
 namespace axiom::assets {
 
 std::shared_ptr<rendering::Shader> AssetManager::LoadShader(const std::string& key, const std::string& vertexPath, const std::string& fragmentPath) {
@@ -20,7 +22,10 @@ std::shared_ptr<rendering::Shader> AssetManager::LoadShader(const std::string& k
     }
 
     auto shader = std::make_shared<rendering::Shader>();
-    shader->LoadFromFiles(vertexPath, fragmentPath);
+    if (!shader->LoadFromFiles(vertexPath, fragmentPath)) {
+        return {};
+    }
+
     shaderCache_[key] = shader;
     return shader;
 }
@@ -56,11 +61,22 @@ std::shared_ptr<MeshAsset> AssetManager::LoadGLTFMesh(const std::string& path) {
     if (primitive.indices >= 0) {
         const auto& accessor = model.accessors[static_cast<std::size_t>(primitive.indices)];
         const auto& view = model.bufferViews[static_cast<std::size_t>(accessor.bufferView)];
-        const auto& buffer = model.buffers[static_cast<std::size_t>(view.buffer)];
-        const auto* indices = reinterpret_cast<const std::uint16_t*>(buffer.data.data() + view.byteOffset + accessor.byteOffset);
+        const auto* indexData = model.buffers[static_cast<std::size_t>(view.buffer)].data.data() + view.byteOffset + accessor.byteOffset;
+
         mesh->indices.reserve(accessor.count);
-        for (std::size_t i = 0; i < accessor.count; ++i) {
-            mesh->indices.push_back(indices[i]);
+        if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+            const auto* indices = reinterpret_cast<const std::uint16_t*>(indexData);
+            for (std::size_t i = 0; i < accessor.count; ++i) {
+                mesh->indices.push_back(indices[i]);
+            }
+        } else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
+            const auto* indices = reinterpret_cast<const std::uint32_t*>(indexData);
+            mesh->indices.assign(indices, indices + accessor.count);
+        } else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) {
+            const auto* indices = reinterpret_cast<const std::uint8_t*>(indexData);
+            for (std::size_t i = 0; i < accessor.count; ++i) {
+                mesh->indices.push_back(indices[i]);
+            }
         }
     }
 

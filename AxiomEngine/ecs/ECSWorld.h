@@ -6,7 +6,6 @@
 #include <functional>
 #include <memory>
 #include <optional>
-#include <span>
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
@@ -87,7 +86,6 @@ class ECSWorld {
     std::size_t nextComponentId_{0};
 
     Archetype& MutableArchetype(std::size_t index);
-    const Archetype& ReadArchetype(std::size_t index) const;
     std::size_t FindOrCreateArchetype(const Signature& signature);
 
     void MoveEntityToSignature(Entity entity, const Signature& target, std::optional<std::pair<std::size_t, const void*>> inserted);

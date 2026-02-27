@@ -47,9 +47,6 @@ ECSWorld::Archetype& ECSWorld::MutableArchetype(std::size_t index) {
     return archetypes_.at(index);
 }
 
-const ECSWorld::Archetype& ECSWorld::ReadArchetype(std::size_t index) const {
-    return archetypes_.at(index);
-}
 
 std::size_t ECSWorld::FindOrCreateArchetype(const Signature& signature) {
     for (std::size_t i = 0; i < archetypes_.size(); ++i) {
