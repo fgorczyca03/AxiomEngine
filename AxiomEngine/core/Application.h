@@ -1,7 +1,9 @@
 #pragma once
 
+#include "AxiomEngine/core/JobSystem.h"
 #include "AxiomEngine/core/Time.h"
 #include "AxiomEngine/ecs/ECSWorld.h"
+#include "AxiomEngine/editor/EditorLayer.h"
 #include "AxiomEngine/input/InputSystem.h"
 #include "AxiomEngine/physics/PhysicsSystem.h"
 #include "AxiomEngine/rendering/Renderer.h"
@@ -25,6 +27,8 @@ class Application {
     input::InputSystem input_{};
     scripting::ScriptSystem scripting_{};
     scene::SceneGraph sceneGraph_;
+    InlineJobSystem jobs_{};
+    editor::EditorLayer editor_{};
     ecs::Entity cubeEntity_{0};
 };
 
