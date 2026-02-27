@@ -53,13 +53,17 @@ endif()
 
 add_library(AxiomEngine STATIC
   AxiomEngine/core/Application.cpp
+  AxiomEngine/core/JobSystem.cpp
   AxiomEngine/core/Time.cpp
+  AxiomEngine/editor/EditorLayer.cpp
   AxiomEngine/ecs/ECSWorld.cpp
   AxiomEngine/scene/SceneGraph.cpp
   AxiomEngine/rendering/Shader.cpp
   AxiomEngine/rendering/Mesh.cpp
+  AxiomEngine/rendering/FrameGraph.cpp
   AxiomEngine/rendering/Renderer.cpp
   AxiomEngine/rendering/Camera.cpp
+  AxiomEngine/profiling/Profiling.cpp
   AxiomEngine/physics/PhysicsSystem.cpp
   AxiomEngine/assets/AssetManager.cpp
   AxiomEngine/scripting/ScriptSystem.cpp
