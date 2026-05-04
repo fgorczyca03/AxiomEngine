@@ -2,6 +2,7 @@
 
 #include "AxiomEngine/ecs/ECSWorld.h"
 #include "AxiomEngine/rendering/Camera.h"
+#include "AxiomEngine/rendering/FrameGraph.h"
 #include "AxiomEngine/rendering/Mesh.h"
 #include "AxiomEngine/rendering/Shader.h"
 
@@ -26,6 +27,7 @@ class Renderer {
     Camera camera_{};
     Shader shader_{};
     Mesh cube_{};
+    FrameGraph frameGraph_{};
 };
 
 } // namespace axiom::rendering
