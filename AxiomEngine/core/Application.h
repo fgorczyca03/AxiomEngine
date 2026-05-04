@@ -1,11 +1,14 @@
 #pragma once
 
+#include "AxiomEngine/core/JobSystem.h"
 #include "AxiomEngine/core/Time.h"
 #include "AxiomEngine/ecs/ECSWorld.h"
+#include "AxiomEngine/editor/EditorLayer.h"
 #include "AxiomEngine/input/InputSystem.h"
 #include "AxiomEngine/physics/PhysicsSystem.h"
 #include "AxiomEngine/rendering/Renderer.h"
 #include "AxiomEngine/scene/SceneGraph.h"
+#include "AxiomEngine/scene/SceneSerializer.h"
 #include "AxiomEngine/scripting/ScriptSystem.h"
 
 namespace axiom::core {
@@ -25,6 +28,9 @@ class Application {
     input::InputSystem input_{};
     scripting::ScriptSystem scripting_{};
     scene::SceneGraph sceneGraph_;
+    scene::SceneSerializer sceneSerializer_{};
+    InlineJobSystem jobs_{};
+    editor::EditorLayer editor_{};
     ecs::Entity cubeEntity_{0};
 };
 
