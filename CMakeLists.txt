@@ -91,3 +91,6 @@ if(AXIOM_BUILD_SANDBOX)
   target_link_libraries(AxiomSandbox PRIVATE AxiomEngine)
   target_compile_definitions(AxiomSandbox PRIVATE AXIOM_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/Sandbox")
 endif()
+
+add_executable(AxiomRuntime App/main.cpp)
+target_link_libraries(AxiomRuntime PRIVATE AxiomEngine)
