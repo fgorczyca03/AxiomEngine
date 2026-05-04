@@ -22,6 +22,22 @@ Application::Application() : sceneGraph_(world_) {
 
 void Application::InitializeScene() {
     AXIOM_PROFILE_FUNCTION();
+
+    const std::string scenePath = std::string(AXIOM_ASSET_ROOT) + "/scenes/default.axscene";
+    if (!sceneSerializer_.Load(world_, scenePath)) {
+        cubeEntity_ = world_.CreateEntity();
+        world_.AddComponent(cubeEntity_, scene::TransformComponent{});
+        world_.AddComponent(cubeEntity_, scene::SceneNodeComponent{});
+        world_.AddComponent(cubeEntity_, rendering::MeshComponent{1, 1});
+        world_.AddComponent(cubeEntity_, physics::RigidBodyComponent{});
+        sceneSerializer_.Save(world_, scenePath);
+    } else {
+        world_.ForEach<scene::TransformComponent>([&](ecs::Entity entity, const scene::TransformComponent&) {
+            if (cubeEntity_ == 0) {
+                cubeEntity_ = entity;
+            }
+        });
+    }
     cubeEntity_ = world_.CreateEntity();
     world_.AddComponent(cubeEntity_, scene::TransformComponent{});
     world_.AddComponent(cubeEntity_, scene::SceneNodeComponent{});
