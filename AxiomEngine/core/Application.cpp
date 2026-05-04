@@ -38,6 +38,11 @@ void Application::InitializeScene() {
             }
         });
     }
+    cubeEntity_ = world_.CreateEntity();
+    world_.AddComponent(cubeEntity_, scene::TransformComponent{});
+    world_.AddComponent(cubeEntity_, scene::SceneNodeComponent{});
+    world_.AddComponent(cubeEntity_, rendering::MeshComponent{1, 1});
+    world_.AddComponent(cubeEntity_, physics::RigidBodyComponent{});
 
     scripting_.LoadScript(std::string(AXIOM_ASSET_ROOT) + "/scripts/rotate.lua");
 }
