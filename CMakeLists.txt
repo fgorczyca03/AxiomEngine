@@ -53,13 +53,17 @@ endif()
 
 add_library(AxiomEngine STATIC
   AxiomEngine/core/Application.cpp
+  AxiomEngine/core/JobSystem.cpp
   AxiomEngine/core/Time.cpp
+  AxiomEngine/editor/EditorLayer.cpp
   AxiomEngine/ecs/ECSWorld.cpp
   AxiomEngine/scene/SceneGraph.cpp
   AxiomEngine/rendering/Shader.cpp
   AxiomEngine/rendering/Mesh.cpp
+  AxiomEngine/rendering/FrameGraph.cpp
   AxiomEngine/rendering/Renderer.cpp
   AxiomEngine/rendering/Camera.cpp
+  AxiomEngine/profiling/Profiling.cpp
   AxiomEngine/physics/PhysicsSystem.cpp
   AxiomEngine/assets/AssetManager.cpp
   AxiomEngine/scripting/ScriptSystem.cpp
@@ -87,3 +91,8 @@ if(AXIOM_BUILD_SANDBOX)
   target_link_libraries(AxiomSandbox PRIVATE AxiomEngine)
   target_compile_definitions(AxiomSandbox PRIVATE AXIOM_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/Sandbox")
 endif()
+
+add_executable(AxiomRuntime App/main.cpp)
+target_link_libraries(AxiomRuntime PRIVATE AxiomEngine)
+
+
