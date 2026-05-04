@@ -81,3 +81,5 @@ A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PR
 ### Asset + scene data scaffolds
 
 A lightweight `AssetRegistry` introduces persistent handles, type metadata, and simple on-disk registry persistence. `SceneSerializer` provides the initial Save/Load seam for scene files so authored data can move out of hardcoded setup and into content files.
+
+A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PROFILE_FUNCTION`, `AXIOM_PROFILE_ZONE`, `AXIOM_PROFILE_FRAME_MARK`). Backends can be swapped at runtime by implementing `IProfilerBackend`.
