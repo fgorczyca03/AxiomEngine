@@ -58,6 +58,7 @@ add_library(AxiomEngine STATIC
   AxiomEngine/editor/EditorLayer.cpp
   AxiomEngine/ecs/ECSWorld.cpp
   AxiomEngine/scene/SceneGraph.cpp
+  AxiomEngine/scene/SceneSerializer.cpp
   AxiomEngine/rendering/Shader.cpp
   AxiomEngine/rendering/Mesh.cpp
   AxiomEngine/rendering/FrameGraph.cpp
@@ -66,6 +67,7 @@ add_library(AxiomEngine STATIC
   AxiomEngine/profiling/Profiling.cpp
   AxiomEngine/physics/PhysicsSystem.cpp
   AxiomEngine/assets/AssetManager.cpp
+  AxiomEngine/assets/AssetRegistry.cpp
   AxiomEngine/scripting/ScriptSystem.cpp
   AxiomEngine/input/InputSystem.cpp
 )

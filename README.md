@@ -33,10 +33,10 @@ Physics remains ECS-driven with fixed-step updates and direct transform synchron
 
 - `AxiomEngine/core`: app loop, deterministic timing, lifetime control, job system contract.
 - `AxiomEngine/ecs`: archetype ECS with SoA component columns and signature-based archetypes.
-- `AxiomEngine/scene`: transform hierarchy and world matrix propagation.
+- `AxiomEngine/scene`: transform hierarchy, world matrix propagation, and scene serialization scaffold.
 - `AxiomEngine/rendering`: OpenGL bootstrap, shader, mesh, camera, forward renderer, frame graph scaffold.
 - `AxiomEngine/physics`: minimal ECS-driven rigid body stepper.
-- `AxiomEngine/assets`: asset caching interfaces.
+- `AxiomEngine/assets`: asset caching interfaces and asset registry scaffolding.
 - `AxiomEngine/scripting`: Lua bridge.
 - `AxiomEngine/input`: input polling abstraction.
 - `AxiomEngine/editor`: ImGui-compatible editor layer scaffold.
@@ -74,5 +74,12 @@ Lua `Update(entity, dt, position)` is called per entity each simulation tick. Sc
 `EditorLayer` wraps an ImGui-style lifecycle (`Initialize/BeginFrame/Draw/EndFrame/Shutdown`). It compiles without ImGui by default and enables UI code paths when `AXIOM_ENABLE_IMGUI` is provided.
 
 ### Profiling hooks
+
+A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PROFILE_FUNCTION`, `AXIOM_PROFILE_ZONE`, `AXIOM_PROFILE_FRAME_MARK`). Backends can be swapped at runtime by implementing `IProfilerBackend`.
+
+
+### Asset + scene data scaffolds
+
+A lightweight `AssetRegistry` introduces persistent handles, type metadata, and simple on-disk registry persistence. `SceneSerializer` provides the initial Save/Load seam for scene files so authored data can move out of hardcoded setup and into content files.
 
 A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PROFILE_FUNCTION`, `AXIOM_PROFILE_ZONE`, `AXIOM_PROFILE_FRAME_MARK`). Backends can be swapped at runtime by implementing `IProfilerBackend`.
