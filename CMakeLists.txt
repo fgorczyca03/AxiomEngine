@@ -59,6 +59,7 @@ add_library(AxiomEngine STATIC
   AxiomEngine/ecs/ECSWorld.cpp
   AxiomEngine/scene/SceneGraph.cpp
   AxiomEngine/scene/SceneSerializer.cpp
+  AxiomEngine/scene/Prefab.cpp
   AxiomEngine/rendering/Shader.cpp
   AxiomEngine/rendering/Mesh.cpp
   AxiomEngine/rendering/FrameGraph.cpp

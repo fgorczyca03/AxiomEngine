@@ -7,6 +7,7 @@
 #include "AxiomEngine/input/InputSystem.h"
 #include "AxiomEngine/physics/PhysicsSystem.h"
 #include "AxiomEngine/rendering/Renderer.h"
+#include "AxiomEngine/scene/Prefab.h"
 #include "AxiomEngine/scene/SceneGraph.h"
 #include "AxiomEngine/scene/SceneSerializer.h"
 #include "AxiomEngine/scripting/ScriptSystem.h"
@@ -29,6 +30,7 @@ class Application {
     scripting::ScriptSystem scripting_{};
     scene::SceneGraph sceneGraph_;
     scene::SceneSerializer sceneSerializer_{};
+    scene::Prefab prefab_{};
     InlineJobSystem jobs_{};
     editor::EditorLayer editor_{};
     ecs::Entity cubeEntity_{0};

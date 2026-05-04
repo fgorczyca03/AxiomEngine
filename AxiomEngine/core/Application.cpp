@@ -24,12 +24,22 @@ void Application::InitializeScene() {
     AXIOM_PROFILE_FUNCTION();
 
     const std::string scenePath = std::string(AXIOM_ASSET_ROOT) + "/scenes/default.axscene";
+    const std::string prefabPath = std::string(AXIOM_ASSET_ROOT) + "/prefabs/cube.axprefab";
     if (!sceneSerializer_.Load(world_, scenePath)) {
-        cubeEntity_ = world_.CreateEntity();
-        world_.AddComponent(cubeEntity_, scene::TransformComponent{});
-        world_.AddComponent(cubeEntity_, scene::SceneNodeComponent{});
-        world_.AddComponent(cubeEntity_, rendering::MeshComponent{1, 1});
-        world_.AddComponent(cubeEntity_, physics::RigidBodyComponent{});
+        auto prefabEntity = prefab_.InstantiateFromFile(world_, prefabPath);
+        if (!prefabEntity.has_value()) {
+            scene::PrefabData prefabData{};
+            prefabData.transform = scene::TransformComponent{};
+            prefabData.node = scene::SceneNodeComponent{};
+            prefabData.mesh = rendering::MeshComponent{1, 1};
+            prefabData.rigidBody = physics::RigidBodyComponent{};
+            prefab_.Save(prefabData, prefabPath);
+            prefabEntity = prefab_.Instantiate(world_, prefabData);
+        }
+
+        if (prefabEntity.has_value()) {
+            cubeEntity_ = *prefabEntity;
+        }
         sceneSerializer_.Save(world_, scenePath);
     } else {
         world_.ForEach<scene::TransformComponent>([&](ecs::Entity entity, const scene::TransformComponent&) {
@@ -38,11 +48,6 @@ void Application::InitializeScene() {
             }
         });
     }
-    cubeEntity_ = world_.CreateEntity();
-    world_.AddComponent(cubeEntity_, scene::TransformComponent{});
-    world_.AddComponent(cubeEntity_, scene::SceneNodeComponent{});
-    world_.AddComponent(cubeEntity_, rendering::MeshComponent{1, 1});
-    world_.AddComponent(cubeEntity_, physics::RigidBodyComponent{});
 
     scripting_.LoadScript(std::string(AXIOM_ASSET_ROOT) + "/scripts/rotate.lua");
 }
