@@ -91,6 +91,15 @@ Runtime scene boot now attempts to load `Sandbox/scenes/default.axscene` through
 
 - Prefab overrides and nested prefab graphs.
 - Asset import pipeline (source -> cooked runtime assets).
+- Input action mapping and gameplay module boundaries (initial scaffold added).
+- Multithreaded job backend with dependency scheduling.
+- Renderer expansion (shadows, post, deferred path).
+
+
+
+### Input action mapping scaffold
+
+`InputSystem` now stores named actions (`SetActionState`, `IsPressed`, `Value`) so gameplay systems can consume semantic input (e.g., `RotateYaw`) instead of hardcoded key polling.
 - Input action mapping and gameplay module boundaries.
 - Multithreaded job backend with dependency scheduling.
 - Renderer expansion (shadows, post, deferred path).

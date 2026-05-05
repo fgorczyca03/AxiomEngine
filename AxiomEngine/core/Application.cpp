@@ -50,6 +50,8 @@ void Application::InitializeScene() {
     }
 
     scripting_.LoadScript(std::string(AXIOM_ASSET_ROOT) + "/scripts/rotate.lua");
+
+    input_.SetActionState("RotateYaw", true, 1.0F);
 }
 
 int Application::Run() {
@@ -84,6 +86,9 @@ int Application::Run() {
                 JobPriority::Normal,
                 [&]() {
                     if (auto* transform = world_.GetComponent<scene::TransformComponent>(cubeEntity_)) {
+                        const float yawSpeed = input_.Value("RotateYaw");
+                        transform->local.rotation =
+                            glm::normalize(glm::angleAxis(fixedStep * yawSpeed, glm::vec3(0.0F, 1.0F, 0.0F)) * transform->local.rotation);
                         transform->local.rotation =
                             glm::normalize(glm::angleAxis(fixedStep, glm::vec3(0.0F, 1.0F, 0.0F)) * transform->local.rotation);
                         transform->dirty = true;
