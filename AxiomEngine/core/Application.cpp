@@ -89,6 +89,8 @@ int Application::Run() {
                         const float yawSpeed = input_.Value("RotateYaw");
                         transform->local.rotation =
                             glm::normalize(glm::angleAxis(fixedStep * yawSpeed, glm::vec3(0.0F, 1.0F, 0.0F)) * transform->local.rotation);
+                        transform->local.rotation =
+                            glm::normalize(glm::angleAxis(fixedStep, glm::vec3(0.0F, 1.0F, 0.0F)) * transform->local.rotation);
                         transform->dirty = true;
                     }
                     sceneGraph_.UpdateTransforms();
