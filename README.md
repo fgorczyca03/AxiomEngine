@@ -91,15 +91,6 @@ A lightweight `AssetRegistry` introduces persistent handles, type metadata, and 
 
 Runtime scene boot now attempts to load `Sandbox/scenes/default.axscene` through `SceneSerializer`; if missing, the engine creates a fallback cube entity and writes the file for future runs.
 
-## Roadmap ahead of what I want to add
-
-- Prefab overrides and nested prefab graphs.
-- Asset import pipeline (source -> cooked runtime assets).
-- Input action mapping and gameplay module boundaries (initial scaffold added).
-- Multithreaded job backend with dependency scheduling.
-- Renderer expansion (shadows, post, deferred path).
-
-
 
 ### Input action mapping scaffold
 
@@ -119,10 +110,6 @@ Run the executable:
 ```bash
 ./build/AxiomRuntime
 ```
-
-- Input action mapping and gameplay module boundaries.
-- Multithreaded job backend with dependency scheduling.
-- Renderer expansion (shadows, post, deferred path).
 
 
 A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PROFILE_FUNCTION`, `AXIOM_PROFILE_ZONE`, `AXIOM_PROFILE_FRAME_MARK`). Backends can be swapped at runtime by implementing `IProfilerBackend`.
