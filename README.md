@@ -144,6 +144,9 @@ If CMake fails with an error like `Could NOT find X11 (missing: X11_X11_INCLUDE_
 
 ```bash
 rm -rf build
+If CMake fails with an error like `Could NOT find X11 (missing: X11_X11_INCLUDE_PATH X11_X11_LIB)`, configure with Wayland enabled and X11 disabled:
+
+```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DAXIOM_GLFW_USE_WAYLAND=ON -DAXIOM_GLFW_USE_X11=OFF
 cmake --build build --target AxiomRuntime --config Release
 ```
@@ -159,3 +162,9 @@ sudo dnf install wayland-devel libxkbcommon-devel
 ```
 
 If you explicitly want the X11 backend instead, install X11 development packages (for example `libX11-devel` on Fedora/Nobara or `libx11-dev` on Debian/Ubuntu), then configure with `-DAXIOM_GLFW_USE_WAYLAND=OFF -DAXIOM_GLFW_USE_X11=ON`.
+```bash
+sudo dnf install wayland-devel libxkbcommon-devel
+```
+
+If you explicitly want the X11 backend instead, install X11 development packages (for example `libX11-devel` on Fedora/Nobara or `libx11-dev` on Debian/Ubuntu), then configure with `-DAXIOM_GLFW_USE_WAYLAND=OFF -DAXIOM_GLFW_USE_X11=ON`.
+If you explicitly want the X11 backend instead, install your distro's X11 development package first (for example `libx11-dev` on Debian/Ubuntu, or `libX11-devel` on Fedora/Nobara), then configure with `-DAXIOM_GLFW_USE_X11=ON`.
