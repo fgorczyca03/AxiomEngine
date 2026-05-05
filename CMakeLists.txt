@@ -32,6 +32,9 @@ if(UNIX AND NOT APPLE)
   # GLFW 3.4+ uses GLFW_BUILD_WAYLAND/GLFW_BUILD_X11.
   # Ensure removed legacy cache flags do not leak into glfw configure.
   unset(GLFW_USE_WAYLAND CACHE)
+  # GLFW 3.3.x consumes GLFW_USE_WAYLAND, while newer releases consume
+  # GLFW_BUILD_WAYLAND/GLFW_BUILD_X11. Set both for compatibility.
+  set(GLFW_USE_WAYLAND ${AXIOM_GLFW_USE_WAYLAND} CACHE BOOL "" FORCE)
   set(GLFW_BUILD_WAYLAND ${AXIOM_GLFW_USE_WAYLAND} CACHE BOOL "" FORCE)
   set(GLFW_BUILD_X11 ${AXIOM_GLFW_USE_X11} CACHE BOOL "" FORCE)
 endif()
