@@ -100,6 +100,22 @@ Runtime scene boot now attempts to load `Sandbox/scenes/default.axscene` through
 ### Input action mapping scaffold
 
 `InputSystem` now stores named actions (`SetActionState`, `IsPressed`, `Value`) so gameplay systems can consume semantic input (e.g., `RotateYaw`) instead of hardcoded key polling.
+
+## Building the executable
+
+From the repository root:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target AxiomRuntime --config Release
+```
+
+Run the executable:
+
+```bash
+./build/AxiomRuntime
+```
+
 - Input action mapping and gameplay module boundaries.
 - Multithreaded job backend with dependency scheduling.
 - Renderer expansion (shadows, post, deferred path).
