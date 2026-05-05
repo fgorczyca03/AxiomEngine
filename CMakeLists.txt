@@ -17,6 +17,14 @@ endif()
 
 include(FetchContent)
 
+if(UNIX AND NOT APPLE)
+  option(AXIOM_GLFW_USE_WAYLAND "Build GLFW with Wayland backend on Linux" ON)
+  option(AXIOM_GLFW_USE_X11 "Build GLFW with X11 backend on Linux" OFF)
+
+  set(GLFW_BUILD_WAYLAND ${AXIOM_GLFW_USE_WAYLAND} CACHE BOOL "" FORCE)
+  set(GLFW_BUILD_X11 ${AXIOM_GLFW_USE_X11} CACHE BOOL "" FORCE)
+endif()
+
 FetchContent_Declare(glfw
   GIT_REPOSITORY https://github.com/glfw/glfw.git
   GIT_TAG 3.3.9)

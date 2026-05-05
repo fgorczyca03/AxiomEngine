@@ -136,3 +136,15 @@ A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PR
 - **Networking foundation:** deterministic snapshot/rollback-friendly replication layer built around ECS component deltas.
 - **Automated quality gates:** add CI for format/lint/build/tests, content validation checks, and performance regression tracking using profiling hooks.
 - **Documentation and samples:** provide end-to-end sample projects (3D platformer/arena) that demonstrate ECS, scripting, assets, and editor workflows as canonical patterns.
+
+
+## Linux build troubleshooting
+
+If CMake fails with an error like `Could NOT find X11 (missing: X11_X11_INCLUDE_PATH X11_X11_LIB)`, configure with Wayland enabled and X11 disabled:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DAXIOM_GLFW_USE_WAYLAND=ON -DAXIOM_GLFW_USE_X11=OFF
+cmake --build build --target AxiomRuntime --config Release
+```
+
+If you explicitly want the X11 backend instead, install your distro's X11 development package first (for example `libx11-dev` on Debian/Ubuntu, or `libX11-devel` on Fedora/Nobara), then configure with `-DAXIOM_GLFW_USE_X11=ON`.
