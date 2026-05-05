@@ -153,6 +153,15 @@ cmake --build build --target AxiomRuntime --config Release
 
 On Fedora/Nobara, make sure Wayland development headers are installed when using the Wayland backend:
 
+- GLFW is fetched at `3.4`, which avoids older Wayland configure paths that required KDE Extra CMake Modules (`ECM`).
+
+```bash
+sudo dnf install wayland-devel libxkbcommon-devel
+# Fallback for older cached GLFW checkouts that still request ECM:
+# sudo dnf install extra-cmake-modules
+```
+
+If you explicitly want the X11 backend instead, install X11 development packages (for example `libX11-devel` on Fedora/Nobara or `libx11-dev` on Debian/Ubuntu), then configure with `-DAXIOM_GLFW_USE_WAYLAND=OFF -DAXIOM_GLFW_USE_X11=ON`.
 ```bash
 sudo dnf install wayland-devel libxkbcommon-devel
 ```
