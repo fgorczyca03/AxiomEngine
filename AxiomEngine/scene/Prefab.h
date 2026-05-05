@@ -7,6 +7,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace axiom::scene {
 
@@ -15,6 +16,14 @@ struct PrefabData {
     std::optional<SceneNodeComponent> node{};
     std::optional<rendering::MeshComponent> mesh{};
     std::optional<physics::RigidBodyComponent> rigidBody{};
+    struct ChildInstance {
+        std::string prefabPath{};
+        std::optional<TransformComponent> transformOverride{};
+        std::optional<SceneNodeComponent> nodeOverride{};
+        std::optional<rendering::MeshComponent> meshOverride{};
+        std::optional<physics::RigidBodyComponent> rigidBodyOverride{};
+    };
+    std::vector<ChildInstance> children{};
 };
 
 class Prefab {
