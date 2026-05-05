@@ -17,9 +17,26 @@ endif()
 
 include(FetchContent)
 
+if(UNIX AND NOT APPLE)
+  option(AXIOM_GLFW_USE_WAYLAND "Build GLFW with Wayland backend on Linux" ON)
+  option(AXIOM_GLFW_USE_X11 "Build GLFW with X11 backend on Linux" OFF)
+
+  if(AXIOM_GLFW_USE_WAYLAND AND AXIOM_GLFW_USE_X11)
+    message(FATAL_ERROR "Choose only one Linux GLFW backend: set either AXIOM_GLFW_USE_WAYLAND=ON or AXIOM_GLFW_USE_X11=ON.")
+  endif()
+
+  if(NOT AXIOM_GLFW_USE_WAYLAND AND NOT AXIOM_GLFW_USE_X11)
+    message(FATAL_ERROR "At least one Linux GLFW backend must be enabled (Wayland or X11).")
+  endif()
+
+  # GLFW 3.4+ uses GLFW_BUILD_WAYLAND/GLFW_BUILD_X11.
+  set(GLFW_BUILD_WAYLAND ${AXIOM_GLFW_USE_WAYLAND} CACHE BOOL "" FORCE)
+  set(GLFW_BUILD_X11 ${AXIOM_GLFW_USE_X11} CACHE BOOL "" FORCE)
+endif()
+
 FetchContent_Declare(glfw
   GIT_REPOSITORY https://github.com/glfw/glfw.git
-  GIT_TAG 3.3.9)
+  GIT_TAG 3.4)
 FetchContent_MakeAvailable(glfw)
 
 FetchContent_Declare(glad
