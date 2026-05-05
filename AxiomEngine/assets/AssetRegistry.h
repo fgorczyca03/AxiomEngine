@@ -11,6 +11,12 @@ namespace axiom::assets {
 class AssetRegistry {
   public:
     AssetHandle Register(AssetType type, const std::string& sourcePath, std::uint64_t sourceHash);
+    AssetHandle RegisterOrUpdate(
+        AssetType type,
+        const std::string& sourcePath,
+        std::uint64_t sourceHash,
+        const std::string& cookedPath,
+        std::uint64_t cookedHash);
     std::optional<AssetMetadata> FindByHandle(AssetHandle handle) const;
     std::optional<AssetMetadata> FindByPath(const std::string& sourcePath) const;
 

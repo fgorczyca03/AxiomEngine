@@ -25,6 +25,8 @@ struct AssetMetadata {
     AssetType type{AssetType::Unknown};
     std::string sourcePath{};
     std::uint64_t sourceHash{0};
+    std::string cookedPath{};
+    std::uint64_t cookedHash{0};
 };
 
 } // namespace axiom::assets
