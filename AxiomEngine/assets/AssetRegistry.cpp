@@ -21,6 +21,31 @@ AssetHandle AssetRegistry::Register(AssetType type, const std::string& sourcePat
     return handle;
 }
 
+AssetHandle AssetRegistry::RegisterOrUpdate(
+    AssetType type,
+    const std::string& sourcePath,
+    std::uint64_t sourceHash,
+    const std::string& cookedPath,
+    std::uint64_t cookedHash) {
+    if (const auto existing = FindByPath(sourcePath); existing.has_value()) {
+        AssetMetadata updated = *existing;
+        updated.type = type;
+        updated.sourceHash = sourceHash;
+        updated.cookedPath = cookedPath;
+        updated.cookedHash = cookedHash;
+        byHandle_[updated.handle] = updated;
+        byPath_[sourcePath] = updated.handle;
+        return updated.handle;
+    }
+
+    const AssetHandle handle = Register(type, sourcePath, sourceHash);
+    AssetMetadata meta = *FindByHandle(handle);
+    meta.cookedPath = cookedPath;
+    meta.cookedHash = cookedHash;
+    byHandle_[handle] = meta;
+    return handle;
+}
+
 std::optional<AssetMetadata> AssetRegistry::FindByHandle(AssetHandle handle) const {
     const auto it = byHandle_.find(handle);
     if (it == byHandle_.end()) {
@@ -43,9 +68,10 @@ bool AssetRegistry::SaveToFile(const std::string& path) const {
         return false;
     }
 
-    out << "# AxiomAssetRegistry v1\n";
+    out << "# AxiomAssetRegistry v2\n";
     for (const auto& [handle, meta] : byHandle_) {
-        out << handle << "|" << static_cast<unsigned>(meta.type) << "|" << meta.sourceHash << "|" << meta.sourcePath << "\n";
+        out << handle << "|" << static_cast<unsigned>(meta.type) << "|" << meta.sourceHash << "|" << meta.sourcePath << "|" << meta.cookedHash
+            << "|" << meta.cookedPath << "\n";
     }
 
     return true;
@@ -70,6 +96,8 @@ bool AssetRegistry::LoadFromFile(const std::string& path) {
         const std::size_t p0 = line.find('|');
         const std::size_t p1 = line.find('|', p0 + 1);
         const std::size_t p2 = line.find('|', p1 + 1);
+        const std::size_t p3 = line.find('|', p2 + 1);
+        const std::size_t p4 = line.find('|', p3 + 1);
         if (p0 == std::string::npos || p1 == std::string::npos || p2 == std::string::npos) {
             continue;
         }
@@ -78,7 +106,13 @@ bool AssetRegistry::LoadFromFile(const std::string& path) {
         meta.handle = static_cast<AssetHandle>(std::stoull(line.substr(0, p0)));
         meta.type = static_cast<AssetType>(std::stoul(line.substr(p0 + 1, p1 - p0 - 1)));
         meta.sourceHash = static_cast<std::uint64_t>(std::stoull(line.substr(p1 + 1, p2 - p1 - 1)));
-        meta.sourcePath = line.substr(p2 + 1);
+        if (p3 == std::string::npos || p4 == std::string::npos) {
+            meta.sourcePath = line.substr(p2 + 1);
+        } else {
+            meta.sourcePath = line.substr(p2 + 1, p3 - p2 - 1);
+            meta.cookedHash = static_cast<std::uint64_t>(std::stoull(line.substr(p3 + 1, p4 - p3 - 1)));
+            meta.cookedPath = line.substr(p4 + 1);
+        }
 
         byHandle_[meta.handle] = meta;
         byPath_[meta.sourcePath] = meta.handle;

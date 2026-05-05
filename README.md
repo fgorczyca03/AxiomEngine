@@ -82,6 +82,10 @@ A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PR
 
 A lightweight `AssetRegistry` introduces persistent handles, type metadata, and simple on-disk registry persistence. `SceneSerializer` provides the initial Save/Load seam for scene files so authored data can move out of hardcoded setup and into content files.
 
+### Asset import pipeline scaffold
+
+`AssetImporter` now provides a source-to-cooked pipeline pass. It scans source directories, infers asset types by extension, copies source files into a cooked output directory (`.axcooked` extension), computes source/cooked content hashes, and stores the mapping in `AssetRegistry` metadata.
+
 
 ### Scene authoring bootstrap
 
