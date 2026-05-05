@@ -29,6 +29,7 @@ if(UNIX AND NOT APPLE)
     message(FATAL_ERROR "At least one Linux GLFW backend must be enabled (Wayland or X11).")
   endif()
 
+  # GLFW 3.4+ uses GLFW_BUILD_WAYLAND/GLFW_BUILD_X11.
   # GLFW 3.3.x consumes GLFW_USE_WAYLAND, while newer releases consume
   # GLFW_BUILD_WAYLAND/GLFW_BUILD_X11. Set both for compatibility.
   set(GLFW_USE_WAYLAND ${AXIOM_GLFW_USE_WAYLAND} CACHE BOOL "" FORCE)
