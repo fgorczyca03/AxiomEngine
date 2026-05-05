@@ -31,7 +31,7 @@ class Application {
     scene::SceneGraph sceneGraph_;
     scene::SceneSerializer sceneSerializer_{};
     scene::Prefab prefab_{};
-    InlineJobSystem jobs_{};
+    ThreadPoolJobSystem jobs_{};
     editor::EditorLayer editor_{};
     ecs::Entity cubeEntity_{0};
 };
