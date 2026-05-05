@@ -113,3 +113,26 @@ Run the executable:
 
 
 A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PROFILE_FUNCTION`, `AXIOM_PROFILE_ZONE`, `AXIOM_PROFILE_FRAME_MARK`). Backends can be swapped at runtime by implementing `IProfilerBackend`.
+
+## Roadmap
+
+### Near term (next 1-2 milestones)
+- **Stabilize authored content flow:** expand `SceneSerializer` + `AssetRegistry` integration so scenes/prefabs reference stable asset handles and validate missing/deprecated assets at load.
+- **Renderer quality baseline:** add material parameter support (albedo/normal/roughness/metallic), directional + point lights, and a basic shadow-map pass inside the current frame-graph abstraction.
+- **Physics and gameplay iteration loop:** improve collision primitives beyond floor response (AABB/capsule + broadphase) and expose deterministic simulation controls in Sandbox for repeatable tests.
+- **Lua scripting ergonomics:** move from `Update(entity, dt, position)` only to a richer API surface (transform, input actions, spawning, tags) with script error reporting surfaced in the editor layer.
+- **Input action system completion:** add bindings, deadzone/axis curves, and serialized action maps so gameplay code no longer depends on raw key state.
+
+### Mid term (engine maturity)
+- **Job system backend:** implement a worker-thread pool backend for `IJobSystem`, then parallelize transform propagation, script updates, and render data extraction with deterministic fences.
+- **Render architecture expansion:** evolve the frame graph from ordered pass execution to resource lifetime/transient allocation tracking, preparing deferred/compute-driven paths.
+- **Asset pipeline v2:** add import recipes, dependency tracking, and incremental reimport (e.g., glTF + texture processing) so cooked output is reproducible and cacheable.
+- **Editor tooling pass:** build core scene inspector/hierarchy, gizmos, and play-in-editor loop on top of `EditorLayer`, including profiling overlays from `ScopedZone` markers.
+- **Prefab workflow:** support nested prefabs, override tracking, and prefab diff/apply operations for scalable content authoring.
+
+### Long term (production readiness)
+- **Streaming + large-world support:** asynchronous asset streaming, world partition/chunk loading, and memory budget enforcement for CPU/GPU resources.
+- **Platform and rendering backends:** keep OpenGL path as reference while introducing an additional backend (e.g., Vulkan/Metal via abstraction seams already present in renderer/frame graph).
+- **Networking foundation:** deterministic snapshot/rollback-friendly replication layer built around ECS component deltas.
+- **Automated quality gates:** add CI for format/lint/build/tests, content validation checks, and performance regression tracking using profiling hooks.
+- **Documentation and samples:** provide end-to-end sample projects (3D platformer/arena) that demonstrate ECS, scripting, assets, and editor workflows as canonical patterns.
