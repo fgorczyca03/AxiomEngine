@@ -68,6 +68,7 @@ add_library(AxiomEngine STATIC
   AxiomEngine/profiling/Profiling.cpp
   AxiomEngine/physics/PhysicsSystem.cpp
   AxiomEngine/assets/AssetManager.cpp
+  AxiomEngine/assets/AssetImporter.cpp
   AxiomEngine/assets/AssetRegistry.cpp
   AxiomEngine/scripting/ScriptSystem.cpp
   AxiomEngine/input/InputSystem.cpp
@@ -97,5 +98,4 @@ endif()
 
 add_executable(AxiomRuntime App/main.cpp)
 target_link_libraries(AxiomRuntime PRIVATE AxiomEngine)
-
 

@@ -75,11 +75,11 @@ int Application::Run() {
         accumulator += static_cast<float>(time_.DeltaSeconds());
 
         while (accumulator >= fixedStep) {
-            jobs_.Enqueue({"PhysicsStep", JobPriority::High, [&]() { physics_.Step(world_, fixedStep); }});
-            jobs_.Flush();
+            const std::size_t physicsJob =
+                jobs_.Enqueue({"PhysicsStep", JobPriority::High, [&]() { physics_.Step(world_, fixedStep); }});
 
-            jobs_.Enqueue({"ScriptUpdate", JobPriority::Normal, [&]() { scripting_.Update(world_, fixedStep); }});
-            jobs_.Flush();
+            const std::size_t scriptJob = jobs_.Enqueue(
+                {"ScriptUpdate", JobPriority::Normal, [&]() { scripting_.Update(world_, fixedStep); }, {physicsJob}});
 
             jobs_.Enqueue({
                 "TransformResolve",
@@ -95,6 +95,7 @@ int Application::Run() {
                     }
                     sceneGraph_.UpdateTransforms();
                 },
+                {scriptJob},
             });
             jobs_.Flush();
 
