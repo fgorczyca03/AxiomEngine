@@ -140,6 +140,8 @@ A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PR
 
 ## Linux build troubleshooting
 
+If you previously configured older revisions, the top-level CMake now clears legacy `GLFW_USE_WAYLAND` cache state automatically to avoid GLFW 3.4 configure failures.
+
 If CMake fails with an error like `Could NOT find X11 (missing: X11_X11_INCLUDE_PATH X11_X11_LIB)` **even when you pass** `-DAXIOM_GLFW_USE_WAYLAND=ON -DAXIOM_GLFW_USE_X11=OFF`, wipe the previous configure cache first and reconfigure:
 
 ```bash
