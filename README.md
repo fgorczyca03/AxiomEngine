@@ -100,3 +100,9 @@ Runtime scene boot now attempts to load `Sandbox/scenes/default.axscene` through
 ### Input action mapping scaffold
 
 `InputSystem` now stores named actions (`SetActionState`, `IsPressed`, `Value`) so gameplay systems can consume semantic input (e.g., `RotateYaw`) instead of hardcoded key polling.
+- Input action mapping and gameplay module boundaries.
+- Multithreaded job backend with dependency scheduling.
+- Renderer expansion (shadows, post, deferred path).
+
+
+A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PROFILE_FUNCTION`, `AXIOM_PROFILE_ZONE`, `AXIOM_PROFILE_FRAME_MARK`). Backends can be swapped at runtime by implementing `IProfilerBackend`.
