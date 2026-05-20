@@ -140,6 +140,13 @@ A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PR
 
 ## Linux build troubleshooting
 
+If you previously configured older revisions, remove your build folder before reconfiguring so legacy cache entries do not leak into dependency setup.
+
+If CMake fails with an error like `Could NOT find X11 (missing: X11_X11_INCLUDE_PATH X11_X11_LIB)` **even when you pass** `-DGLFW_BUILD_WAYLAND=ON -DGLFW_BUILD_X11=OFF`, wipe the previous configure cache first and reconfigure:
+
+```bash
+rm -rf build
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DGLFW_BUILD_WAYLAND=ON -DGLFW_BUILD_X11=OFF
 If you previously configured older revisions, the top-level CMake now clears legacy `GLFW_USE_WAYLAND` cache state automatically to avoid GLFW 3.4 configure failures.
 
 If CMake fails with an error like `Could NOT find X11 (missing: X11_X11_INCLUDE_PATH X11_X11_LIB)` **even when you pass** `-DAXIOM_GLFW_USE_WAYLAND=ON -DAXIOM_GLFW_USE_X11=OFF`, wipe the previous configure cache first and reconfigure:
@@ -164,6 +171,7 @@ sudo dnf install wayland-devel libxkbcommon-devel
 # sudo dnf install extra-cmake-modules
 ```
 
+If you explicitly want the X11 backend instead, install X11 development packages (for example `libX11-devel` on Fedora/Nobara or `libx11-dev` on Debian/Ubuntu), then configure with `-DGLFW_BUILD_WAYLAND=OFF -DGLFW_BUILD_X11=ON`.
 If you explicitly want the X11 backend instead, install X11 development packages (for example `libX11-devel` on Fedora/Nobara or `libx11-dev` on Debian/Ubuntu), then configure with `-DAXIOM_GLFW_USE_WAYLAND=OFF -DAXIOM_GLFW_USE_X11=ON`.
 ```bash
 sudo dnf install wayland-devel libxkbcommon-devel
