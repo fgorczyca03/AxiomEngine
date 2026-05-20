@@ -17,9 +17,23 @@ endif()
 
 include(FetchContent)
 
+if(UNIX AND NOT APPLE)
+  # Pass GLFW backend selection directly using upstream flags.
+  option(GLFW_BUILD_WAYLAND "Build GLFW Wayland backend" ON)
+  option(GLFW_BUILD_X11 "Build GLFW X11 backend" OFF)
+
+  if(GLFW_BUILD_WAYLAND AND GLFW_BUILD_X11)
+    message(FATAL_ERROR "Choose only one Linux GLFW backend: set either GLFW_BUILD_WAYLAND=ON or GLFW_BUILD_X11=ON.")
+  endif()
+
+  if(NOT GLFW_BUILD_WAYLAND AND NOT GLFW_BUILD_X11)
+    message(FATAL_ERROR "At least one Linux GLFW backend must be enabled (Wayland or X11).")
+  endif()
+endif()
+
 FetchContent_Declare(glfw
   GIT_REPOSITORY https://github.com/glfw/glfw.git
-  GIT_TAG 3.3.9)
+  GIT_TAG 3.4)
 FetchContent_MakeAvailable(glfw)
 
 FetchContent_Declare(glad
