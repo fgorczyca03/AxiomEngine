@@ -92,9 +92,17 @@ A lightweight `AssetRegistry` introduces persistent handles, type metadata, and 
 Runtime scene boot now attempts to load `Sandbox/scenes/default.axscene` through `SceneSerializer`; if missing, the engine creates a fallback cube entity and writes the file for future runs.
 
 
-### Input action mapping scaffold
+### Input action mapping
 
-`InputSystem` now stores named actions (`SetActionState`, `IsPressed`, `Value`) so gameplay systems can consume semantic input (e.g., `RotateYaw`) instead of hardcoded key polling.
+`InputSystem` now supports serialized action maps with configurable bindings and value shaping. Actions can be bound as digital buttons or signed axes, then filtered through per-action deadzone and response curves before gameplay reads values.
+
+Current runtime flow:
+- Load action maps from content (`Sandbox/input/default.axinput`) via `LoadActionMap`.
+- Fall back to generating a default map on first run and persist it with `SaveActionMap`.
+- Sample platform key state once per frame and evaluate bindings into semantic actions (`EvaluateBindings`).
+- Consume action values in gameplay (`input_.Value("RotateYaw")`) instead of directly checking raw keys.
+
+This keeps input tuning in data files and decouples gameplay logic from device-specific key state.
 
 ## Building the executable
 
@@ -121,7 +129,7 @@ A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PR
 - **Renderer quality baseline:** add material parameter support (albedo/normal/roughness/metallic), directional + point lights, and a basic shadow-map pass inside the current frame-graph abstraction.
 - **Physics and gameplay iteration loop:** improve collision primitives beyond floor response (AABB/capsule + broadphase) and expose deterministic simulation controls in Sandbox for repeatable tests.
 - **Lua scripting ergonomics:** move from `Update(entity, dt, position)` only to a richer API surface (transform, input actions, spawning, tags) with script error reporting surfaced in the editor layer.
-- **Input action system completion:** add bindings, deadzone/axis curves, and serialized action maps so gameplay code no longer depends on raw key state.
+- **Input device expansion:** add mouse/gamepad bindings, per-device sensitivity presets, and runtime rebinding UI on top of the serialized action-map format.
 
 ### Mid term (engine maturity)
 - **Job system backend:** implement a worker-thread pool backend for `IJobSystem`, then parallelize transform propagation, script updates, and render data extraction with deterministic fences.

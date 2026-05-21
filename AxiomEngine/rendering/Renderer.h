@@ -21,6 +21,7 @@ class Renderer {
 
     [[nodiscard]] bool ShouldClose() const;
     void PollEvents() const;
+    [[nodiscard]] bool IsKeyPressed(int keyCode) const;
 
   private:
     GLFWwindow* window_{nullptr};

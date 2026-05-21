@@ -87,4 +87,8 @@ bool Renderer::ShouldClose() const { return glfwWindowShouldClose(window_) != 0;
 
 void Renderer::PollEvents() const { glfwPollEvents(); }
 
+bool Renderer::IsKeyPressed(int keyCode) const {
+    return glfwGetKey(window_, keyCode) == GLFW_PRESS;
+}
+
 } // namespace axiom::rendering
