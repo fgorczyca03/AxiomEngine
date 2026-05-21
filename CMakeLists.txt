@@ -18,19 +18,17 @@ endif()
 include(FetchContent)
 
 if(UNIX AND NOT APPLE)
-  # Pass GLFW backend selection directly using upstream flags.
-  option(GLFW_BUILD_WAYLAND "Build GLFW Wayland backend" ON)
-  option(GLFW_BUILD_X11 "Build GLFW X11 backend" OFF)
-
-  if(GLFW_BUILD_WAYLAND AND GLFW_BUILD_X11)
-    message(FATAL_ERROR "Choose only one Linux GLFW backend: set either GLFW_BUILD_WAYLAND=ON or GLFW_BUILD_X11=ON.")
-  endif()
-
-  if(NOT GLFW_BUILD_WAYLAND AND NOT GLFW_BUILD_X11)
-    message(FATAL_ERROR "At least one Linux GLFW backend must be enabled (Wayland or X11).")
-  endif()
   option(AXIOM_GLFW_USE_WAYLAND "Build GLFW with Wayland backend on Linux" ON)
   option(AXIOM_GLFW_USE_X11 "Build GLFW with X11 backend on Linux" OFF)
+
+  # Backward compatibility: if callers still pass raw GLFW flags,
+  # mirror them into AXIOM-prefixed options unless explicitly overridden.
+  if(DEFINED GLFW_BUILD_WAYLAND AND NOT DEFINED AXIOM_GLFW_USE_WAYLAND)
+    set(AXIOM_GLFW_USE_WAYLAND ${GLFW_BUILD_WAYLAND} CACHE BOOL "" FORCE)
+  endif()
+  if(DEFINED GLFW_BUILD_X11 AND NOT DEFINED AXIOM_GLFW_USE_X11)
+    set(AXIOM_GLFW_USE_X11 ${GLFW_BUILD_X11} CACHE BOOL "" FORCE)
+  endif()
 
   if(AXIOM_GLFW_USE_WAYLAND AND AXIOM_GLFW_USE_X11)
     message(FATAL_ERROR "Choose only one Linux GLFW backend: set either AXIOM_GLFW_USE_WAYLAND=ON or AXIOM_GLFW_USE_X11=ON.")
@@ -40,16 +38,17 @@ if(UNIX AND NOT APPLE)
     message(FATAL_ERROR "At least one Linux GLFW backend must be enabled (Wayland or X11).")
   endif()
 
-  # GLFW 3.4+ uses GLFW_BUILD_WAYLAND/GLFW_BUILD_X11.
-  # Ensure removed legacy cache flags do not leak into glfw configure.
-  unset(GLFW_USE_WAYLAND)
+  # Clear stale GLFW cache variables from older build trees and publish
+  # backend selection using both old/new GLFW cache variable names.
   unset(GLFW_USE_WAYLAND CACHE)
-  unset(GLFW_USE_WAYLAND CACHE)
-  # GLFW 3.3.x consumes GLFW_USE_WAYLAND, while newer releases consume
-  # GLFW_BUILD_WAYLAND/GLFW_BUILD_X11. Set both for compatibility.
+  unset(GLFW_BUILD_WAYLAND CACHE)
+  unset(GLFW_BUILD_X11 CACHE)
+
   set(GLFW_USE_WAYLAND ${AXIOM_GLFW_USE_WAYLAND} CACHE BOOL "" FORCE)
   set(GLFW_BUILD_WAYLAND ${AXIOM_GLFW_USE_WAYLAND} CACHE BOOL "" FORCE)
   set(GLFW_BUILD_X11 ${AXIOM_GLFW_USE_X11} CACHE BOOL "" FORCE)
+
+  message(STATUS "Axiom GLFW backend: WAYLAND=${AXIOM_GLFW_USE_WAYLAND}, X11=${AXIOM_GLFW_USE_X11}")
 endif()
 
 FetchContent_Declare(glfw
@@ -133,4 +132,3 @@ endif()
 
 add_executable(AxiomRuntime App/main.cpp)
 target_link_libraries(AxiomRuntime PRIVATE AxiomEngine)
-
