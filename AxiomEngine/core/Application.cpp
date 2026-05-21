@@ -5,6 +5,7 @@
 #include "AxiomEngine/rendering/Components.h"
 #include "AxiomEngine/scene/Components.h"
 
+#include <GLFW/glfw3.h>
 #include <glm/gtx/quaternion.hpp>
 
 #ifndef AXIOM_ASSET_ROOT
@@ -25,6 +26,7 @@ void Application::InitializeScene() {
 
     const std::string scenePath = std::string(AXIOM_ASSET_ROOT) + "/scenes/default.axscene";
     const std::string prefabPath = std::string(AXIOM_ASSET_ROOT) + "/prefabs/cube.axprefab";
+    const std::string actionMapPath = std::string(AXIOM_ASSET_ROOT) + "/input/default.axinput";
     if (!sceneSerializer_.Load(world_, scenePath)) {
         auto prefabEntity = prefab_.InstantiateFromFile(world_, prefabPath);
         if (!prefabEntity.has_value()) {
@@ -51,7 +53,13 @@ void Application::InitializeScene() {
 
     scripting_.LoadScript(std::string(AXIOM_ASSET_ROOT) + "/scripts/rotate.lua");
 
-    input_.SetActionState("RotateYaw", true, 1.0F);
+    if (!input_.LoadActionMap(actionMapPath)) {
+        input_.ClearBindings();
+        input_.AddAxisBinding("RotateYaw", GLFW_KEY_A, GLFW_KEY_D, 2.0F);
+        input_.SetActionDeadzone("RotateYaw", 0.05F);
+        input_.SetActionCurveExponent("RotateYaw", 1.5F);
+        input_.SaveActionMap(actionMapPath);
+    }
 }
 
 int Application::Run() {
@@ -71,6 +79,7 @@ int Application::Run() {
 
         renderer_.PollEvents();
         input_.Update();
+        input_.EvaluateBindings({{GLFW_KEY_A, renderer_.IsKeyPressed(GLFW_KEY_A)}, {GLFW_KEY_D, renderer_.IsKeyPressed(GLFW_KEY_D)}});
         time_.Tick();
         accumulator += static_cast<float>(time_.DeltaSeconds());
 
@@ -89,8 +98,6 @@ int Application::Run() {
                         const float yawSpeed = input_.Value("RotateYaw");
                         transform->local.rotation =
                             glm::normalize(glm::angleAxis(fixedStep * yawSpeed, glm::vec3(0.0F, 1.0F, 0.0F)) * transform->local.rotation);
-                        transform->local.rotation =
-                            glm::normalize(glm::angleAxis(fixedStep, glm::vec3(0.0F, 1.0F, 0.0F)) * transform->local.rotation);
                         transform->dirty = true;
                     }
                     sceneGraph_.UpdateTransforms();
