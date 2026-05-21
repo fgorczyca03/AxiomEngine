@@ -140,42 +140,62 @@ A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PR
 
 ## Linux build troubleshooting
 
-If you previously configured older revisions, remove your build folder before reconfiguring so legacy cache entries do not leak into dependency setup.
-
-If CMake fails with an error like `Could NOT find X11 (missing: X11_X11_INCLUDE_PATH X11_X11_LIB)` **even when you pass** `-DGLFW_BUILD_WAYLAND=ON -DGLFW_BUILD_X11=OFF`, wipe the previous configure cache first and reconfigure:
+If you previously configured older revisions, remove your build folder before reconfiguring so legacy cache entries do not leak into dependency setup:
 
 ```bash
 rm -rf build
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DGLFW_BUILD_WAYLAND=ON -DGLFW_BUILD_X11=OFF
-If you previously configured older revisions, the top-level CMake now clears legacy `GLFW_USE_WAYLAND` cache state automatically to avoid GLFW 3.4 configure failures.
-
-If CMake fails with an error like `Could NOT find X11 (missing: X11_X11_INCLUDE_PATH X11_X11_LIB)` **even when you pass** `-DAXIOM_GLFW_USE_WAYLAND=ON -DAXIOM_GLFW_USE_X11=OFF`, wipe the previous configure cache first and reconfigure:
-
-```bash
-rm -rf build
-If CMake fails with an error like `Could NOT find X11 (missing: X11_X11_INCLUDE_PATH X11_X11_LIB)`, configure with Wayland enabled and X11 disabled:
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DAXIOM_GLFW_USE_WAYLAND=ON -DAXIOM_GLFW_USE_X11=OFF
-cmake --build build --target AxiomRuntime --config Release
 ```
 
-On Fedora/Nobara, make sure Wayland development headers are installed when using the Wayland backend:
+### Build on Linux (Wayland backend)
 
-- GLFW is fetched at `3.4` and expects `GLFW_BUILD_WAYLAND`/`GLFW_BUILD_X11` (not `GLFW_USE_WAYLAND`).
-- GLFW is fetched at `3.4`, which avoids older Wayland configure paths that required KDE Extra CMake Modules (`ECM`).
+Install build tools and Wayland/XKB headers:
 
 ```bash
-sudo dnf install wayland-devel libxkbcommon-devel
-# Fallback for older cached GLFW checkouts that still request ECM:
-# sudo dnf install extra-cmake-modules
+# Debian/Ubuntu
+sudo apt update
+sudo apt install -y build-essential cmake ninja-build git pkg-config libwayland-dev libxkbcommon-dev
+
+# Fedora/Nobara
+sudo dnf install -y gcc-c++ cmake ninja-build git pkgconf-pkg-config wayland-devel libxkbcommon-devel
 ```
 
-If you explicitly want the X11 backend instead, install X11 development packages (for example `libX11-devel` on Fedora/Nobara or `libx11-dev` on Debian/Ubuntu), then configure with `-DGLFW_BUILD_WAYLAND=OFF -DGLFW_BUILD_X11=ON`.
-If you explicitly want the X11 backend instead, install X11 development packages (for example `libX11-devel` on Fedora/Nobara or `libx11-dev` on Debian/Ubuntu), then configure with `-DAXIOM_GLFW_USE_WAYLAND=OFF -DAXIOM_GLFW_USE_X11=ON`.
+Configure and build the runtime executable:
+
 ```bash
-sudo dnf install wayland-devel libxkbcommon-devel
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DAXIOM_GLFW_USE_WAYLAND=ON -DAXIOM_GLFW_USE_X11=OFF
+cmake --build build --target AxiomRuntime
 ```
 
-If you explicitly want the X11 backend instead, install X11 development packages (for example `libX11-devel` on Fedora/Nobara or `libx11-dev` on Debian/Ubuntu), then configure with `-DAXIOM_GLFW_USE_WAYLAND=OFF -DAXIOM_GLFW_USE_X11=ON`.
-If you explicitly want the X11 backend instead, install your distro's X11 development package first (for example `libx11-dev` on Debian/Ubuntu, or `libX11-devel` on Fedora/Nobara), then configure with `-DAXIOM_GLFW_USE_X11=ON`.
+Run it:
+
+```bash
+./build/AxiomRuntime
+```
+
+### Build on Linux (X11 backend)
+
+Install X11 development headers, then configure with X11:
+
+```bash
+# Debian/Ubuntu
+sudo apt install -y libx11-dev
+
+# Fedora/Nobara
+sudo dnf install -y libX11-devel
+
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DAXIOM_GLFW_USE_WAYLAND=OFF -DAXIOM_GLFW_USE_X11=ON
+cmake --build build --target AxiomRuntime
+```
+
+### Common errors
+
+- `Could NOT find X11 ...` while trying Wayland build:
+  - Ensure you passed `-DAXIOM_GLFW_USE_WAYLAND=ON -DAXIOM_GLFW_USE_X11=OFF`.
+  - Wipe build cache (`rm -rf build`) and reconfigure.
+
+- `fatal: unable to access 'https://github.com/...': CONNECT tunnel failed ...`:
+  - This is a network/proxy/firewall issue while fetching dependencies via `FetchContent`.
+  - Confirm outbound GitHub access from your terminal environment.
+
+- Passing `-DGLFW_BUILD_WAYLAND` / `-DGLFW_BUILD_X11`:
+  - Top-level CMake remains compatible, but prefer `AXIOM_GLFW_USE_WAYLAND` / `AXIOM_GLFW_USE_X11` going forward.
