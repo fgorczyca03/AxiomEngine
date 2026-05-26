@@ -22,6 +22,9 @@ class Renderer {
     [[nodiscard]] bool ShouldClose() const;
     void PollEvents() const;
     [[nodiscard]] bool IsKeyPressed(int keyCode) const;
+    [[nodiscard]] float MouseDeltaX();
+    [[nodiscard]] bool IsGamepadButtonPressed(int button) const;
+    [[nodiscard]] float GamepadAxis(int axis) const;
 
   private:
     GLFWwindow* window_{nullptr};
@@ -29,6 +32,7 @@ class Renderer {
     Shader shader_{};
     Mesh cube_{};
     FrameGraph frameGraph_{};
+    double lastCursorX_{0.0};
 };
 
 } // namespace axiom::rendering

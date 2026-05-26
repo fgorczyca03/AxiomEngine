@@ -122,29 +122,27 @@ Run the executable:
 
 A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PROFILE_FUNCTION`, `AXIOM_PROFILE_ZONE`, `AXIOM_PROFILE_FRAME_MARK`). Backends can be swapped at runtime by implementing `IProfilerBackend`.
 
-## Roadmap
+## Development Focus
+
+The project is currently prioritizing the following initiatives:
 
 ### Near term (next 1-2 milestones)
-- **Stabilize authored content flow:** expand `SceneSerializer` + `AssetRegistry` integration so scenes/prefabs reference stable asset handles and validate missing/deprecated assets at load.
-- **Renderer quality baseline:** add material parameter support (albedo/normal/roughness/metallic), directional + point lights, and a basic shadow-map pass inside the current frame-graph abstraction.
-- **Physics and gameplay iteration loop:** improve collision primitives beyond floor response (AABB/capsule + broadphase) and expose deterministic simulation controls in Sandbox for repeatable tests.
-- **Lua scripting ergonomics:** move from `Update(entity, dt, position)` only to a richer API surface (transform, input actions, spawning, tags) with script error reporting surfaced in the editor layer.
-- **Input device expansion:** add mouse/gamepad bindings, per-device sensitivity presets, and runtime rebinding UI on top of the serialized action-map format.
+- Raise rendering quality with material parameters, directional/point lights, and a basic shadow-map pass under the existing frame-graph model.
+- Improve simulation iteration with broader collision support (AABB/capsule + broadphase) and deterministic Sandbox controls.
+- Expand Lua scripting ergonomics beyond `Update(entity, dt, position)` to richer transform/input/spawn/tag APIs with surfaced script errors.
 
 ### Mid term (engine maturity)
-- **Job system backend:** implement a worker-thread pool backend for `IJobSystem`, then parallelize transform propagation, script updates, and render data extraction with deterministic fences.
-- **Render architecture expansion:** evolve the frame graph from ordered pass execution to resource lifetime/transient allocation tracking, preparing deferred/compute-driven paths.
-- **Asset pipeline v2:** add import recipes, dependency tracking, and incremental reimport (e.g., glTF + texture processing) so cooked output is reproducible and cacheable.
-- **Editor tooling pass:** build core scene inspector/hierarchy, gizmos, and play-in-editor loop on top of `EditorLayer`, including profiling overlays from `ScopedZone` markers.
-- **Prefab workflow:** support nested prefabs, override tracking, and prefab diff/apply operations for scalable content authoring.
+- Implement a worker-thread pool backend for `IJobSystem` and parallelize transform propagation, script updates, and render extraction.
+- Evolve frame-graph execution toward explicit resource lifetime tracking and transient allocation planning for deferred/compute paths.
+- Build `AssetImporter` recipes, dependency tracking, and incremental reimport for reproducible/cached cooked outputs.
+- Deliver core editor hierarchy/inspector/gizmos and a play-in-editor loop on top of `EditorLayer` with profiling overlays.
+- Add nested prefab support with override tracking plus diff/apply authoring workflows.
 
 ### Long term (production readiness)
-- **Streaming + large-world support:** asynchronous asset streaming, world partition/chunk loading, and memory budget enforcement for CPU/GPU resources.
-- **Platform and rendering backends:** keep OpenGL path as reference while introducing an additional backend (e.g., Vulkan/Metal via abstraction seams already present in renderer/frame graph).
-- **Networking foundation:** deterministic snapshot/rollback-friendly replication layer built around ECS component deltas.
-- **Automated quality gates:** add CI for format/lint/build/tests, content validation checks, and performance regression tracking using profiling hooks.
-- **Documentation and samples:** provide end-to-end sample projects (3D platformer/arena) that demonstrate ECS, scripting, assets, and editor workflows as canonical patterns.
-
+- Add asynchronous streaming, world partition/chunk loading, and explicit CPU/GPU memory budget enforcement.
+- Preserve OpenGL as a reference backend while adding at least one additional backend (e.g., Vulkan/Metal).
+- Introduce deterministic snapshot/rollback-friendly ECS replication foundations.
+- Ship end-to-end sample projects that demonstrate canonical engine workflows.
 
 ## Linux build troubleshooting
 
