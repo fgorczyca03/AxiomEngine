@@ -2,6 +2,7 @@
 
 #include "AxiomEngine/core/JobSystem.h"
 #include "AxiomEngine/core/Time.h"
+#include "AxiomEngine/assets/AssetRegistry.h"
 #include "AxiomEngine/ecs/ECSWorld.h"
 #include "AxiomEngine/editor/EditorLayer.h"
 #include "AxiomEngine/input/InputSystem.h"
@@ -29,7 +30,8 @@ class Application {
     input::InputSystem input_{};
     scripting::ScriptSystem scripting_{};
     scene::SceneGraph sceneGraph_;
-    scene::SceneSerializer sceneSerializer_{};
+    assets::AssetRegistry assetRegistry_{};
+    scene::SceneSerializer sceneSerializer_{&assetRegistry_};
     scene::Prefab prefab_{};
     ThreadPoolJobSystem jobs_{};
     editor::EditorLayer editor_{};

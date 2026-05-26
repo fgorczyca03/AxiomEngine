@@ -55,6 +55,7 @@ bool Renderer::Initialize(int width, int height, const char* title) {
             });
         });
     frameGraph_.Compile();
+    glfwGetCursorPos(window_, &lastCursorX_, nullptr);
     return true;
 }
 
@@ -89,6 +90,31 @@ void Renderer::PollEvents() const { glfwPollEvents(); }
 
 bool Renderer::IsKeyPressed(int keyCode) const {
     return glfwGetKey(window_, keyCode) == GLFW_PRESS;
+}
+
+
+float Renderer::MouseDeltaX() {
+    double x = 0.0;
+    glfwGetCursorPos(window_, &x, nullptr);
+    const float delta = static_cast<float>(x - lastCursorX_);
+    lastCursorX_ = x;
+    return delta;
+}
+
+bool Renderer::IsGamepadButtonPressed(int button) const {
+    GLFWgamepadstate state{};
+    if (glfwGetGamepadState(GLFW_JOYSTICK_1, &state) == GLFW_FALSE) {
+        return false;
+    }
+    return state.buttons[button] == GLFW_PRESS;
+}
+
+float Renderer::GamepadAxis(int axis) const {
+    GLFWgamepadstate state{};
+    if (glfwGetGamepadState(GLFW_JOYSTICK_1, &state) == GLFW_FALSE) {
+        return 0.0F;
+    }
+    return state.axes[axis];
 }
 
 } // namespace axiom::rendering

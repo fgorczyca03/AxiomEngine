@@ -16,6 +16,9 @@ struct InputAction {
 enum class InputBindingType {
     Key,
     Axis,
+    MouseAxis,
+    GamepadAxis,
+    GamepadButton,
 };
 
 struct InputBinding {
@@ -27,6 +30,13 @@ struct InputBinding {
     float curveExponent{1.0F};
 };
 
+struct InputSnapshot {
+    std::unordered_map<int, bool> keyState{};
+    std::unordered_map<int, float> mouseAxisState{};
+    std::unordered_map<int, bool> gamepadButtonState{};
+    std::unordered_map<int, float> gamepadAxisState{};
+};
+
 class InputSystem {
   public:
     void Update();
@@ -34,10 +44,14 @@ class InputSystem {
     void SetActionState(const std::string& actionName, bool pressed, float value = 1.0F);
     void AddKeyBinding(const std::string& actionName, int keyCode, float scale = 1.0F);
     void AddAxisBinding(const std::string& actionName, int negativeKeyCode, int positiveKeyCode, float scale = 1.0F);
+    void AddMouseAxisBinding(const std::string& actionName, int axisId, float scale = 1.0F);
+    void AddGamepadAxisBinding(const std::string& actionName, int axisId, float scale = 1.0F);
+    void AddGamepadButtonBinding(const std::string& actionName, int buttonId, float scale = 1.0F);
     void SetActionDeadzone(const std::string& actionName, float deadzone);
     void SetActionCurveExponent(const std::string& actionName, float curveExponent);
     void ClearBindings();
     void EvaluateBindings(const std::unordered_map<int, bool>& keyState);
+    void EvaluateBindings(const InputSnapshot& snapshot);
     bool SaveActionMap(const std::string& path) const;
     bool LoadActionMap(const std::string& path);
 
@@ -48,9 +62,9 @@ class InputSystem {
 
   private:
     struct ActionMapEntry {
-        float deadzone{0.0F};
-        float curveExponent{1.0F};
-        std::vector<InputBinding> bindings{};
+      float deadzone{0.0F};
+      float curveExponent{1.0F};
+      std::vector<InputBinding> bindings{};
     };
 
     [[nodiscard]] static float ApplyDeadzoneAndCurve(float value, float deadzone, float curveExponent);
