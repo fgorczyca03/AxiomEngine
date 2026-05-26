@@ -127,6 +127,9 @@ A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PR
 The project is currently prioritizing the following initiatives:
 
 ### Near term (next 1-2 milestones)
+- Raise rendering quality with material parameters, directional/point lights, and a basic shadow-map pass under the existing frame-graph model.
+- Improve simulation iteration with broader collision support (AABB/capsule + broadphase) and deterministic Sandbox controls.
+- Expand Lua scripting ergonomics beyond `Update(entity, dt, position)` to richer transform/input/spawn/tag APIs with surfaced script errors.
 - Stabilize authored content flow by deepening `SceneSerializer` + `AssetRegistry` integration, with asset handle validation at load.
 - Raise rendering quality with material parameters, directional/point lights, and a basic shadow-map pass under the existing frame-graph model.
 - Improve simulation iteration with broader collision support (AABB/capsule + broadphase) and deterministic Sandbox controls.
