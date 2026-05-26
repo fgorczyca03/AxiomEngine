@@ -22,10 +22,15 @@ jobs:
             cmake \
             ninja-build \
             pkg-config \
+            libgl1-mesa-dev \
             libx11-dev \
+            libxinerama-dev \
+            libxcursor-dev \
+            libxi-dev \
             libxrandr-dev \
             libwayland-dev \
-            libxkbcommon-dev
+            libxkbcommon-dev \
+            wayland-protocols
 
       - name: Clean build directory
         run: rm -rf build

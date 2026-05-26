@@ -29,6 +29,28 @@ Axiom is split into simulation and presentation layers that communicate through 
 
 ## Build
 
+### Prerequisites (Ubuntu/Debian)
+
+Install the toolchain and Linux window-system/OpenGL development packages used by GLFW:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+  build-essential \
+  cmake \
+  ninja-build \
+  pkg-config \
+  libgl1-mesa-dev \
+  libx11-dev \
+  libxinerama-dev \
+  libxcursor-dev \
+  libxi-dev \
+  libxrandr-dev \
+  libwayland-dev \
+  libxkbcommon-dev \
+  wayland-protocols
+```
+
 From repository root:
 
 ```bash
@@ -92,4 +114,3 @@ If you reconfigure often, `--fresh` avoids stale cache variables from prior buil
 ## Additional docs
 
 - `docs/CODING_STYLE.rst` for coding conventions used across the project.
-
