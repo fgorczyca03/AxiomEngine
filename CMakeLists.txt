@@ -21,30 +21,25 @@ if(UNIX AND NOT APPLE)
   option(AXIOM_GLFW_USE_WAYLAND "Build GLFW with Wayland backend on Linux" ON)
   option(AXIOM_GLFW_USE_X11 "Build GLFW with X11 backend on Linux" OFF)
 
-  # Backward compatibility: if callers still pass raw GLFW flags,
-  # mirror them into AXIOM-prefixed options unless explicitly overridden.
-  if(DEFINED GLFW_BUILD_WAYLAND AND NOT DEFINED AXIOM_GLFW_USE_WAYLAND)
+  # Backward compatibility: if callers pass raw GLFW flags,
+  # mirror them into AXIOM-prefixed options.
+  if(DEFINED GLFW_BUILD_WAYLAND)
     set(AXIOM_GLFW_USE_WAYLAND ${GLFW_BUILD_WAYLAND} CACHE BOOL "" FORCE)
   endif()
-  if(DEFINED GLFW_BUILD_X11 AND NOT DEFINED AXIOM_GLFW_USE_X11)
+  if(DEFINED GLFW_BUILD_X11)
     set(AXIOM_GLFW_USE_X11 ${GLFW_BUILD_X11} CACHE BOOL "" FORCE)
-  endif()
-
-  if(AXIOM_GLFW_USE_WAYLAND AND AXIOM_GLFW_USE_X11)
-    message(FATAL_ERROR "Choose only one Linux GLFW backend: set either AXIOM_GLFW_USE_WAYLAND=ON or AXIOM_GLFW_USE_X11=ON.")
   endif()
 
   if(NOT AXIOM_GLFW_USE_WAYLAND AND NOT AXIOM_GLFW_USE_X11)
     message(FATAL_ERROR "At least one Linux GLFW backend must be enabled (Wayland or X11).")
   endif()
 
-  # Clear stale GLFW cache variables from older build trees and publish
-  # backend selection using both old/new GLFW cache variable names.
+  # Clear stale GLFW cache variable from older build trees and publish
+  # backend selection using GLFW's current cache variable names.
   unset(GLFW_USE_WAYLAND CACHE)
   unset(GLFW_BUILD_WAYLAND CACHE)
   unset(GLFW_BUILD_X11 CACHE)
 
-  set(GLFW_USE_WAYLAND ${AXIOM_GLFW_USE_WAYLAND} CACHE BOOL "" FORCE)
   set(GLFW_BUILD_WAYLAND ${AXIOM_GLFW_USE_WAYLAND} CACHE BOOL "" FORCE)
   set(GLFW_BUILD_X11 ${AXIOM_GLFW_USE_X11} CACHE BOOL "" FORCE)
 
