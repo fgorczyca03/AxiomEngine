@@ -92,3 +92,33 @@ If you reconfigure often, `--fresh` avoids stale cache variables from prior buil
 ## Additional docs
 
 - `docs/CODING_STYLE.rst` for coding conventions used across the project.
+
+## Development Focus
+
+The project is currently prioritizing the following initiatives:
+- `AXIOM_GLFW_USE_WAYLAND`
+- `AXIOM_GLFW_USE_X11`
+
+### Near term (next 1-2 milestones)
+- Raise rendering quality with material parameters, directional/point lights, and a basic shadow-map pass under the existing frame-graph model.
+- Improve simulation iteration with broader collision support (AABB/capsule + broadphase) and deterministic Sandbox controls.
+- Expand Lua scripting ergonomics beyond `Update(entity, dt, position)` to richer transform/input/spawn/tag APIs with surfaced script errors.
+- Stabilize authored content flow by deepening `SceneSerializer` + `AssetRegistry` integration, with asset handle validation at load.
+- Raise rendering quality with material parameters, directional/point lights, and a basic shadow-map pass under the existing frame-graph model.
+- Improve simulation iteration with broader collision support (AABB/capsule + broadphase) and deterministic Sandbox controls.
+- Expand Lua scripting ergonomics beyond `Update(entity, dt, position)` to richer transform/input/spawn/tag APIs with surfaced script errors.
+- Add mouse/gamepad action bindings, device sensitivity presets, and runtime rebinding UI for serialized action maps.
+
+### Mid term (engine maturity)
+- Implement a worker-thread pool backend for `IJobSystem` and parallelize transform propagation, script updates, and render extraction.
+- Evolve frame-graph execution toward explicit resource lifetime tracking and transient allocation planning for deferred/compute paths.
+- Build `AssetImporter` recipes, dependency tracking, and incremental reimport for reproducible/cached cooked outputs.
+- Deliver core editor hierarchy/inspector/gizmos and a play-in-editor loop on top of `EditorLayer` with profiling overlays.
+- Add nested prefab support with override tracking plus diff/apply authoring workflows.
+
+### Long term (production readiness)
+- Add asynchronous streaming, world partition/chunk loading, and explicit CPU/GPU memory budget enforcement.
+- Preserve OpenGL as a reference backend while adding at least one additional backend (e.g., Vulkan/Metal).
+- Introduce deterministic snapshot/rollback-friendly ECS replication foundations.
+- Establish CI quality gates for formatting/lint/build/tests, content validation, and performance regression checks.
+- Ship end-to-end sample projects that demonstrate canonical engine workflows.
