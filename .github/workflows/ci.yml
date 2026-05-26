@@ -23,6 +23,7 @@ jobs:
             ninja-build \
             pkg-config \
             libx11-dev \
+            libxrandr-dev \
             libwayland-dev \
             libxkbcommon-dev
 
