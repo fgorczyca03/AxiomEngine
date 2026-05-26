@@ -130,6 +130,11 @@ The project is currently prioritizing the following initiatives:
 - Raise rendering quality with material parameters, directional/point lights, and a basic shadow-map pass under the existing frame-graph model.
 - Improve simulation iteration with broader collision support (AABB/capsule + broadphase) and deterministic Sandbox controls.
 - Expand Lua scripting ergonomics beyond `Update(entity, dt, position)` to richer transform/input/spawn/tag APIs with surfaced script errors.
+- Stabilize authored content flow by deepening `SceneSerializer` + `AssetRegistry` integration, with asset handle validation at load.
+- Raise rendering quality with material parameters, directional/point lights, and a basic shadow-map pass under the existing frame-graph model.
+- Improve simulation iteration with broader collision support (AABB/capsule + broadphase) and deterministic Sandbox controls.
+- Expand Lua scripting ergonomics beyond `Update(entity, dt, position)` to richer transform/input/spawn/tag APIs with surfaced script errors.
+- Add mouse/gamepad action bindings, device sensitivity presets, and runtime rebinding UI for serialized action maps.
 
 ### Mid term (engine maturity)
 - Implement a worker-thread pool backend for `IJobSystem` and parallelize transform propagation, script updates, and render extraction.
@@ -142,6 +147,7 @@ The project is currently prioritizing the following initiatives:
 - Add asynchronous streaming, world partition/chunk loading, and explicit CPU/GPU memory budget enforcement.
 - Preserve OpenGL as a reference backend while adding at least one additional backend (e.g., Vulkan/Metal).
 - Introduce deterministic snapshot/rollback-friendly ECS replication foundations.
+- Establish CI quality gates for formatting/lint/build/tests, content validation, and performance regression checks.
 - Ship end-to-end sample projects that demonstrate canonical engine workflows.
 
 ## Linux build troubleshooting
