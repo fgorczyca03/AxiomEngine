@@ -30,7 +30,7 @@ jobs:
         run: rm -rf build
 
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release --fresh
 
       - name: Build
         run: cmake --build build --target AxiomRuntime --config Release

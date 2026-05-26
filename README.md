@@ -13,201 +13,82 @@ Axiom is split into simulation and presentation layers that communicate through 
 - **Render layer** consumes read-only frame snapshots through a frame-graph pass model.
 - **Tooling layer** (editor + profiling) observes frame state without owning gameplay data.
 
-This follows the architectural spirit of id Tech/Frostbite/Source: strict subsystem contracts, data-oriented runtime, and explicit scheduling seams.
-
-## Major Design Decisions
-
-### ECS layout: archetype SoA
-
-The world uses signature-indexed archetypes where each component type is stored in its own contiguous column per archetype. This keeps cache-friendly linear iteration for systems, and enables deterministic migration when signatures change.
-
-### Render pipeline choice: forward renderer + frame-graph scaffold
-
-The renderer remains a minimal forward path today for fast iteration, but now routes execution through a `FrameGraph` abstraction. Passes declare resource reads/writes and execute in graph order. This makes future migration to deferred, async compute, and transient attachment allocation possible without rewriting app-level render flow.
-
-### Physics integration: ECS-first deterministic step
-
-Physics remains ECS-driven with fixed-step updates and direct transform synchronization. This keeps simulation deterministic and avoids hidden ownership splits between game objects and rigid bodies. The new job interface schedules each simulation phase as explicit tasks, preparing for multithreaded execution later.
-
 ## Folder Structure
 
 - `AxiomEngine/core`: app loop, deterministic timing, lifetime control, job system contract.
 - `AxiomEngine/ecs`: archetype ECS with SoA component columns and signature-based archetypes.
-- `AxiomEngine/scene`: transform hierarchy, world matrix propagation, and scene serialization scaffold.
+- `AxiomEngine/scene`: transform hierarchy, world matrix propagation, scene serialization scaffold.
 - `AxiomEngine/rendering`: OpenGL bootstrap, shader, mesh, camera, forward renderer, frame graph scaffold.
 - `AxiomEngine/physics`: minimal ECS-driven rigid body stepper.
-- `AxiomEngine/assets`: asset caching interfaces and asset registry scaffolding.
+- `AxiomEngine/assets`: asset caching interfaces and asset registry/import scaffolding.
 - `AxiomEngine/scripting`: Lua bridge.
-- `AxiomEngine/input`: input polling abstraction.
+- `AxiomEngine/input`: input polling abstraction with action mapping.
 - `AxiomEngine/editor`: ImGui-compatible editor layer scaffold.
-- `AxiomEngine/profiling`: pluggable profiler hooks (Tracy-style scope API).
-- `Sandbox`: sample application, shaders, and scripts.
+- `AxiomEngine/profiling`: pluggable profiler hooks.
+- `Sandbox`: sample application, shaders, scripts, and scene/input content.
 
-## Architecture Highlights
+## Build
 
-### ECS
-
-Entities are integral IDs. Components are assigned runtime type IDs and packed into archetype-local columns. Each archetype stores one SoA vector per component type in that archetype. Moving entities across signatures migrates row data between archetypes, preserving tight linear iteration for systems.
-
-### Scene and Transform Propagation
-
-Scene nodes carry parent IDs and transform components. Dirty local transforms recompute world transforms on update. This keeps simulation writes local and render reads consistent.
-
-### Renderer + Frame Graph
-
-OpenGL 4.5 core profile via GLFW + GLAD. The renderer owns device objects (shader/mesh/camera) and executes passes through a lightweight frame graph. The default graph contains a forward opaque pass that samples ECS transform + mesh components.
-
-### Physics
-
-A minimal semi-implicit Euler solver updates rigid body velocity/position and syncs transform components directly, with simple floor collision response.
-
-### Lua scripting
-
-Lua `Update(entity, dt, position)` is called per entity each simulation tick. Script outputs are applied to ECS transform data.
-
-### Job system scaffold
-
-`IJobSystem` defines an engine-level scheduling contract (`Enqueue/Flush/WorkerCount`). `InlineJobSystem` is a deterministic single-thread backend used by the app loop today, preserving behavior while exposing job boundaries for a future worker-pool backend.
-
-### Editor scaffold
-
-`EditorLayer` wraps an ImGui-style lifecycle (`Initialize/BeginFrame/Draw/EndFrame/Shutdown`). It compiles without ImGui by default and enables UI code paths when `AXIOM_ENABLE_IMGUI` is provided.
-
-### Profiling hooks
-
-A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PROFILE_FUNCTION`, `AXIOM_PROFILE_ZONE`, `AXIOM_PROFILE_FRAME_MARK`). Backends can be swapped at runtime by implementing `IProfilerBackend`.
-
-
-### Asset + scene data scaffolds
-
-A lightweight `AssetRegistry` introduces persistent handles, type metadata, and simple on-disk registry persistence. `SceneSerializer` provides the initial Save/Load seam for scene files so authored data can move out of hardcoded setup and into content files.
-
-### Asset import pipeline scaffold
-
-`AssetImporter` now provides a source-to-cooked pipeline pass. It scans source directories, infers asset types by extension, copies source files into a cooked output directory (`.axcooked` extension), computes source/cooked content hashes, and stores the mapping in `AssetRegistry` metadata.
-
-
-### Scene authoring bootstrap
-
-Runtime scene boot now attempts to load `Sandbox/scenes/default.axscene` through `SceneSerializer`; if missing, the engine creates a fallback cube entity and writes the file for future runs.
-
-
-### Input action mapping
-
-`InputSystem` now supports serialized action maps with configurable bindings and value shaping. Actions can be bound as digital buttons or signed axes, then filtered through per-action deadzone and response curves before gameplay reads values.
-
-Current runtime flow:
-- Load action maps from content (`Sandbox/input/default.axinput`) via `LoadActionMap`.
-- Fall back to generating a default map on first run and persist it with `SaveActionMap`.
-- Sample platform key state once per frame and evaluate bindings into semantic actions (`EvaluateBindings`).
-- Consume action values in gameplay (`input_.Value("RotateYaw")`) instead of directly checking raw keys.
-
-This keeps input tuning in data files and decouples gameplay logic from device-specific key state.
-
-## Building the executable
-
-From the repository root:
+From repository root:
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release --fresh
 cmake --build build --target AxiomRuntime --config Release
 ```
 
-Run the executable:
+Run:
 
 ```bash
 ./build/AxiomRuntime
 ```
 
+## Linux backend configuration
 
-A Tracy-style scope interface is provided via `ScopedZone` and macros (`AXIOM_PROFILE_FUNCTION`, `AXIOM_PROFILE_ZONE`, `AXIOM_PROFILE_FRAME_MARK`). Backends can be swapped at runtime by implementing `IProfilerBackend`.
+Linux builds support explicit GLFW backend selection via:
+
+- `AXIOM_GLFW_USE_WAYLAND`
+- `AXIOM_GLFW_USE_X11`
+
+Examples:
+
+```bash
+# Wayland
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release --fresh \
+  -DAXIOM_GLFW_USE_WAYLAND=ON -DAXIOM_GLFW_USE_X11=OFF
+
+# X11
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release --fresh \
+  -DAXIOM_GLFW_USE_WAYLAND=OFF -DAXIOM_GLFW_USE_X11=ON
+```
+
+If you reconfigure often, `--fresh` avoids stale cache variables from prior builds.
 
 ## Development Focus
 
-The project is currently prioritizing the following initiatives:
-
 ### Near term (next 1-2 milestones)
-- Raise rendering quality with material parameters, directional/point lights, and a basic shadow-map pass under the existing frame-graph model.
-- Improve simulation iteration with broader collision support (AABB/capsule + broadphase) and deterministic Sandbox controls.
-- Expand Lua scripting ergonomics beyond `Update(entity, dt, position)` to richer transform/input/spawn/tag APIs with surfaced script errors.
-- Stabilize authored content flow by deepening `SceneSerializer` + `AssetRegistry` integration, with asset handle validation at load.
-- Raise rendering quality with material parameters, directional/point lights, and a basic shadow-map pass under the existing frame-graph model.
-- Improve simulation iteration with broader collision support (AABB/capsule + broadphase) and deterministic Sandbox controls.
-- Expand Lua scripting ergonomics beyond `Update(entity, dt, position)` to richer transform/input/spawn/tag APIs with surfaced script errors.
-- Add mouse/gamepad action bindings, device sensitivity presets, and runtime rebinding UI for serialized action maps.
+
+- Improve material/light/shadow quality under the frame-graph path.
+- Expand collision coverage and deterministic Sandbox controls.
+- Improve Lua scripting ergonomics and surfaced script errors.
+- Deepen scene + asset handle validation across authored content.
+- Expand input mappings (mouse/gamepad/rebinding UI).
 
 ### Mid term (engine maturity)
-- Implement a worker-thread pool backend for `IJobSystem` and parallelize transform propagation, script updates, and render extraction.
-- Evolve frame-graph execution toward explicit resource lifetime tracking and transient allocation planning for deferred/compute paths.
-- Build `AssetImporter` recipes, dependency tracking, and incremental reimport for reproducible/cached cooked outputs.
-- Deliver core editor hierarchy/inspector/gizmos and a play-in-editor loop on top of `EditorLayer` with profiling overlays.
-- Add nested prefab support with override tracking plus diff/apply authoring workflows.
+
+- Add worker-thread backend for `IJobSystem` and parallelize key phases.
+- Evolve frame-graph resource lifetime/transient planning.
+- Build incremental, dependency-aware asset import recipes.
+- Deliver core editor hierarchy/inspector/gizmos + play-in-editor loop.
+- Add nested prefab support with override workflows.
 
 ### Long term (production readiness)
-- Add asynchronous streaming, world partition/chunk loading, and explicit CPU/GPU memory budget enforcement.
-- Preserve OpenGL as a reference backend while adding at least one additional backend (e.g., Vulkan/Metal).
-- Introduce deterministic snapshot/rollback-friendly ECS replication foundations.
-- Establish CI quality gates for formatting/lint/build/tests, content validation, and performance regression checks.
-- Ship end-to-end sample projects that demonstrate canonical engine workflows.
 
-## Linux build troubleshooting
+- Add async streaming/world partition and strict memory budgets.
+- Keep OpenGL reference backend while adding another backend.
+- Introduce deterministic snapshot/rollback-friendly replication foundations.
+- Add CI quality gates for formatting/lint/build/tests/content/perf regression.
+- Ship end-to-end sample projects for canonical workflows.
 
-If you previously configured older revisions, remove your build folder before reconfiguring so legacy cache entries do not leak into dependency setup:
+## Additional docs
 
-```bash
-rm -rf build
-```
-
-### Build on Linux (Wayland backend)
-
-Install build tools and Wayland/XKB headers:
-
-```bash
-# Debian/Ubuntu
-sudo apt update
-sudo apt install -y build-essential cmake ninja-build git pkg-config libwayland-dev libxkbcommon-dev
-
-# Fedora/Nobara
-sudo dnf install -y gcc-c++ cmake ninja-build git pkgconf-pkg-config wayland-devel libxkbcommon-devel
-```
-
-Configure and build the runtime executable:
-
-```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DAXIOM_GLFW_USE_WAYLAND=ON -DAXIOM_GLFW_USE_X11=OFF
-cmake --build build --target AxiomRuntime
-```
-
-Run it:
-
-```bash
-./build/AxiomRuntime
-```
-
-### Build on Linux (X11 backend)
-
-Install X11 development headers, then configure with X11:
-
-```bash
-# Debian/Ubuntu
-sudo apt install -y libx11-dev
-
-# Fedora/Nobara
-sudo dnf install -y libX11-devel
-
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DAXIOM_GLFW_USE_WAYLAND=OFF -DAXIOM_GLFW_USE_X11=ON
-cmake --build build --target AxiomRuntime
-```
-
-### Common errors
-
-- `Could NOT find X11 ...` while trying Wayland build:
-  - Ensure you passed `-DAXIOM_GLFW_USE_WAYLAND=ON -DAXIOM_GLFW_USE_X11=OFF`.
-  - Wipe build cache (`rm -rf build`) and reconfigure.
-
-- `fatal: unable to access 'https://github.com/...': CONNECT tunnel failed ...`:
-  - This is a network/proxy/firewall issue while fetching dependencies via `FetchContent`.
-  - Confirm outbound GitHub access from your terminal environment.
-
-- Passing `-DGLFW_BUILD_WAYLAND` / `-DGLFW_BUILD_X11`:
-  - Top-level CMake remains compatible, but prefer `AXIOM_GLFW_USE_WAYLAND` / `AXIOM_GLFW_USE_X11` going forward.
+- `docs/CODING_STYLE.rst` for coding conventions used across the project.
