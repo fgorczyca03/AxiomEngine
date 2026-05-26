@@ -1,7 +1,6 @@
 #include "AxiomEngine/scene/SceneSerializer.h"
 
 #include "AxiomEngine/physics/Components.h"
-#include "AxiomEngine/rendering/Components.h"
 #include "AxiomEngine/scene/Components.h"
 
 #include <fstream>
@@ -21,12 +20,11 @@ struct SerializedEntity {
 
 } // namespace
 
+SceneSerializer::SceneSerializer(const assets::AssetRegistry* assetRegistry) : assetRegistry_(assetRegistry) {}
+
+void SceneSerializer::SetAssetRegistry(const assets::AssetRegistry* assetRegistry) { assetRegistry_ = assetRegistry; }
+
 bool SceneSerializer::Save(const ecs::ECSWorld& world, const std::string& path) const {
-#include <fstream>
-
-namespace axiom::scene {
-
-bool SceneSerializer::Save(const ecs::ECSWorld&, const std::string& path) const {
     std::ofstream out(path, std::ios::trunc);
     if (!out.is_open()) {
         return false;
@@ -93,6 +91,7 @@ bool SceneSerializer::Load(ecs::ECSWorld& world, const std::string& path) const 
         stream >> data.rigidBody.halfExtent.x >> data.rigidBody.halfExtent.y >> data.rigidBody.halfExtent.z;
 
         data.transform.dirty = true;
+        ValidateMeshComponent(data.mesh);
         entities.push_back(data);
     }
 
@@ -105,14 +104,31 @@ bool SceneSerializer::Load(ecs::ECSWorld& world, const std::string& path) const 
     }
 
     return true;
-    out << "# AxiomScene v1\n";
-    out << "# Scene serialization scaffold.\n";
-    return true;
 }
 
-bool SceneSerializer::Load(ecs::ECSWorld&, const std::string& path) const {
-    std::ifstream in(path);
-    return in.is_open();
+bool SceneSerializer::ValidateMeshComponent(rendering::MeshComponent& mesh) const {
+    if (assetRegistry_ == nullptr) {
+        return true;
+    }
+
+    bool valid = true;
+    if (mesh.meshHandle != 0U) {
+        const auto meshAsset = assetRegistry_->FindByHandle(static_cast<assets::AssetHandle>(mesh.meshHandle));
+        if (!meshAsset.has_value() || meshAsset->type != assets::AssetType::Mesh) {
+            mesh.meshHandle = 0U;
+            valid = false;
+        }
+    }
+
+    if (mesh.materialHandle != 0U) {
+        const auto materialAsset = assetRegistry_->FindByHandle(static_cast<assets::AssetHandle>(mesh.materialHandle));
+        if (!materialAsset.has_value() || materialAsset->type != assets::AssetType::Material) {
+            mesh.materialHandle = 0U;
+            valid = false;
+        }
+    }
+
+    return valid;
 }
 
 } // namespace axiom::scene

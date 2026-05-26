@@ -8,11 +8,7 @@
 namespace axiom::input {
 
 namespace {
-
-float Clamp01(float value) {
-    return std::clamp(value, 0.0F, 1.0F);
-}
-
+float Clamp01(float value) { return std::clamp(value, 0.0F, 1.0F); }
 } // namespace
 
 void InputSystem::Update() {
@@ -39,9 +35,19 @@ void InputSystem::AddAxisBinding(const std::string& actionName, int negativeKeyC
     actionMap_[actionName].bindings.push_back({InputBindingType::Axis, positiveKeyCode, negativeKeyCode, scale, 0.0F, 1.0F});
 }
 
-void InputSystem::SetActionDeadzone(const std::string& actionName, float deadzone) {
-    actionMap_[actionName].deadzone = Clamp01(deadzone);
+void InputSystem::AddMouseAxisBinding(const std::string& actionName, int axisId, float scale) {
+    actionMap_[actionName].bindings.push_back({InputBindingType::MouseAxis, axisId, 0, scale, 0.0F, 1.0F});
 }
+
+void InputSystem::AddGamepadAxisBinding(const std::string& actionName, int axisId, float scale) {
+    actionMap_[actionName].bindings.push_back({InputBindingType::GamepadAxis, axisId, 0, scale, 0.0F, 1.0F});
+}
+
+void InputSystem::AddGamepadButtonBinding(const std::string& actionName, int buttonId, float scale) {
+    actionMap_[actionName].bindings.push_back({InputBindingType::GamepadButton, buttonId, 0, scale, 0.0F, 1.0F});
+}
+
+void InputSystem::SetActionDeadzone(const std::string& actionName, float deadzone) { actionMap_[actionName].deadzone = Clamp01(deadzone); }
 
 void InputSystem::SetActionCurveExponent(const std::string& actionName, float curveExponent) {
     actionMap_[actionName].curveExponent = std::max(curveExponent, 0.01F);
@@ -53,19 +59,35 @@ void InputSystem::ClearBindings() {
 }
 
 void InputSystem::EvaluateBindings(const std::unordered_map<int, bool>& keyState) {
+    InputSnapshot snapshot{};
+    snapshot.keyState = keyState;
+    EvaluateBindings(snapshot);
+}
+
+void InputSystem::EvaluateBindings(const InputSnapshot& snapshot) {
     for (const auto& [actionName, entry] : actionMap_) {
         float combinedValue = 0.0F;
-
         for (const InputBinding& binding : entry.bindings) {
             float sample = 0.0F;
             if (binding.type == InputBindingType::Key) {
-                const auto it = keyState.find(binding.positiveKey);
-                sample = (it != keyState.end() && it->second) ? binding.scale : 0.0F;
-            } else {
-                const bool posPressed = keyState.contains(binding.positiveKey) && keyState.at(binding.positiveKey);
-                const bool negPressed = keyState.contains(binding.negativeKey) && keyState.at(binding.negativeKey);
+                const auto it = snapshot.keyState.find(binding.positiveKey);
+                sample = (it != snapshot.keyState.end() && it->second) ? binding.scale : 0.0F;
+            } else if (binding.type == InputBindingType::Axis) {
+                const bool posPressed = snapshot.keyState.contains(binding.positiveKey) && snapshot.keyState.at(binding.positiveKey);
+                const bool negPressed = snapshot.keyState.contains(binding.negativeKey) && snapshot.keyState.at(binding.negativeKey);
                 sample = (posPressed ? 1.0F : 0.0F) - (negPressed ? 1.0F : 0.0F);
                 sample *= binding.scale;
+            } else if (binding.type == InputBindingType::MouseAxis) {
+                if (snapshot.mouseAxisState.contains(binding.positiveKey)) {
+                    sample = snapshot.mouseAxisState.at(binding.positiveKey) * binding.scale;
+                }
+            } else if (binding.type == InputBindingType::GamepadAxis) {
+                if (snapshot.gamepadAxisState.contains(binding.positiveKey)) {
+                    sample = snapshot.gamepadAxisState.at(binding.positiveKey) * binding.scale;
+                }
+            } else if (binding.type == InputBindingType::GamepadButton) {
+                const bool pressed = snapshot.gamepadButtonState.contains(binding.positiveKey) && snapshot.gamepadButtonState.at(binding.positiveKey);
+                sample = pressed ? binding.scale : 0.0F;
             }
             combinedValue += sample;
         }
@@ -86,8 +108,12 @@ bool InputSystem::SaveActionMap(const std::string& path) const {
     for (const auto& [actionName, entry] : actionMap_) {
         out << "ACTION " << actionName << " " << entry.deadzone << " " << entry.curveExponent << "\n";
         for (const InputBinding& binding : entry.bindings) {
-            out << "BIND " << (binding.type == InputBindingType::Key ? "KEY" : "AXIS") << " "
-                << binding.positiveKey << " " << binding.negativeKey << " " << binding.scale << "\n";
+            std::string type = "KEY";
+            if (binding.type == InputBindingType::Axis) type = "AXIS";
+            if (binding.type == InputBindingType::MouseAxis) type = "MOUSE_AXIS";
+            if (binding.type == InputBindingType::GamepadAxis) type = "GAMEPAD_AXIS";
+            if (binding.type == InputBindingType::GamepadButton) type = "GAMEPAD_BUTTON";
+            out << "BIND " << type << " " << binding.positiveKey << " " << binding.negativeKey << " " << binding.scale << "\n";
         }
         out << "END_ACTION\n";
     }
@@ -108,7 +134,6 @@ bool InputSystem::LoadActionMap(const std::string& path) {
     std::unordered_map<std::string, ActionMapEntry> loaded;
     std::string line;
     std::string currentAction;
-
     while (std::getline(in, line)) {
         if (line.empty()) {
             continue;
@@ -117,7 +142,6 @@ bool InputSystem::LoadActionMap(const std::string& path) {
         std::istringstream stream(line);
         std::string tag;
         stream >> tag;
-
         if (tag == "ACTION") {
             ActionMapEntry entry{};
             stream >> currentAction >> entry.deadzone >> entry.curveExponent;
@@ -126,7 +150,11 @@ bool InputSystem::LoadActionMap(const std::string& path) {
             std::string type;
             InputBinding binding{};
             stream >> type >> binding.positiveKey >> binding.negativeKey >> binding.scale;
-            binding.type = (type == "AXIS") ? InputBindingType::Axis : InputBindingType::Key;
+            binding.type = InputBindingType::Key;
+            if (type == "AXIS") binding.type = InputBindingType::Axis;
+            else if (type == "MOUSE_AXIS") binding.type = InputBindingType::MouseAxis;
+            else if (type == "GAMEPAD_AXIS") binding.type = InputBindingType::GamepadAxis;
+            else if (type == "GAMEPAD_BUTTON") binding.type = InputBindingType::GamepadButton;
             loaded[currentAction].bindings.push_back(binding);
         } else if (tag == "END_ACTION") {
             currentAction.clear();
@@ -139,34 +167,19 @@ bool InputSystem::LoadActionMap(const std::string& path) {
 
 bool InputSystem::IsPressed(const std::string& actionName) const {
     const auto it = actions_.find(actionName);
-    if (it == actions_.end()) {
-        return false;
-    }
-    return it->second.pressed;
+    return it != actions_.end() && it->second.pressed;
 }
-
 bool InputSystem::WasPressed(const std::string& actionName) const {
     const auto it = actions_.find(actionName);
-    if (it == actions_.end()) {
-        return false;
-    }
-    return it->second.justPressed;
+    return it != actions_.end() && it->second.justPressed;
 }
-
 bool InputSystem::WasReleased(const std::string& actionName) const {
     const auto it = actions_.find(actionName);
-    if (it == actions_.end()) {
-        return false;
-    }
-    return it->second.justReleased;
+    return it != actions_.end() && it->second.justReleased;
 }
-
 float InputSystem::Value(const std::string& actionName) const {
     const auto it = actions_.find(actionName);
-    if (it == actions_.end()) {
-        return 0.0F;
-    }
-    return it->second.value;
+    return it == actions_.end() ? 0.0F : it->second.value;
 }
 
 float InputSystem::ApplyDeadzoneAndCurve(float value, float deadzone, float curveExponent) {
@@ -174,7 +187,6 @@ float InputSystem::ApplyDeadzoneAndCurve(float value, float deadzone, float curv
     if (magnitude <= deadzone) {
         return 0.0F;
     }
-
     const float sign = value < 0.0F ? -1.0F : 1.0F;
     const float normalized = (magnitude - deadzone) / (1.0F - deadzone);
     return sign * std::pow(std::clamp(normalized, 0.0F, 1.0F), std::max(curveExponent, 0.01F));
