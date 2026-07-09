@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Axiom Engine</title>
+  <desc id="desc">A stylized letter A over a dark hexagonal engine core.</desc>
+  <defs>
+    <linearGradient id="bg" x1="18" y1="14" x2="110" y2="114" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1f2937"/>
+      <stop offset="1" stop-color="#030712"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="33" y1="99" x2="95" y2="29" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#bg)" d="M64 6 112.5 34v56L64 118 15.5 90V34L64 6Z"/>
+  <path fill="none" stroke="#334155" stroke-width="4" d="M64 12 107 37v54l-43 25-43-25V37l43-25Z"/>
+  <path fill="url(#accent)" d="M60.1 25.5h7.8l36.7 77h-15L82 85.8H46l-7.6 16.7h-15l36.7-77Zm16.5 47.8L64 45.7 51.4 73.3h25.2Z"/>
+  <path fill="#e0f2fe" opacity="0.9" d="M58 77h12l7.2 15.5H64.8L58 77Z"/>
+</svg>

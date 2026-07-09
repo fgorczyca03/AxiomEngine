@@ -16,6 +16,7 @@ else()
 endif()
 
 include(FetchContent)
+include(GNUInstallDirs)
 
 if(UNIX AND NOT APPLE)
   option(AXIOM_GLFW_USE_WAYLAND "Build GLFW with Wayland backend on Linux" ON)
@@ -127,3 +128,23 @@ endif()
 
 add_executable(AxiomRuntime App/main.cpp)
 target_link_libraries(AxiomRuntime PRIVATE AxiomEngine)
+
+install(TARGETS AxiomRuntime
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+if(UNIX AND NOT APPLE)
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/packaging/linux/axiom-engine.desktop.in
+    ${CMAKE_CURRENT_BINARY_DIR}/packaging/linux/axiom-engine.desktop
+    @ONLY
+  )
+
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/packaging/linux/axiom-engine.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+  )
+
+  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/hicolor/scalable/apps/axiom-engine.svg
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+  )
+endif()
