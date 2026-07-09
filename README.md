@@ -117,9 +117,6 @@ If you reconfigure often, `--fresh` avoids stale cache variables from prior buil
 ### Near term (next 1-2 milestones)
 
 - Improve material/light/shadow quality under the frame-graph path.
-- Expand collision coverage and deterministic Sandbox controls.
-- Improve Lua scripting ergonomics and surfaced script errors.
-- Deepen scene + asset handle validation across authored content.
 - Expand input mappings (mouse/gamepad/rebinding UI).
 
 ### Mid term (engine maturity)
