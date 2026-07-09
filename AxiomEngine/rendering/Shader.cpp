@@ -55,4 +55,9 @@ void Shader::SetVec3(const std::string& name, const glm::vec3& value) const {
     glUniform3fv(loc, 1, glm::value_ptr(value));
 }
 
+void Shader::SetFloat(const std::string& name, float value) const {
+    const auto loc = glGetUniformLocation(program_, name.c_str());
+    glUniform1f(loc, value);
+}
+
 } // namespace axiom::rendering

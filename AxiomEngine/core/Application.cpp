@@ -9,6 +9,7 @@
 #include <glm/gtx/quaternion.hpp>
 #include <array>
 #include <filesystem>
+#include <iostream>
 
 #ifndef AXIOM_ASSET_ROOT
 #define AXIOM_ASSET_ROOT "."
@@ -54,6 +55,10 @@ void Application::InitializeScene() {
         }
         sceneSerializer_.Save(world_, scenePath);
     } else {
+        for (const auto& issue : sceneSerializer_.ValidationIssues()) {
+            std::cerr << "Axiom scene validation warning at line " << issue.lineNumber
+                      << " entity " << issue.entityIndex << ": " << issue.message << '\n';
+        }
         world_.ForEach<scene::TransformComponent>([&](ecs::Entity entity, const scene::TransformComponent&) {
             if (cubeEntity_ == 0) {
                 cubeEntity_ = entity;
@@ -61,17 +66,26 @@ void Application::InitializeScene() {
         });
     }
 
-    scripting_.LoadScript(std::string(AXIOM_ASSET_ROOT) + "/scripts/rotate.lua");
+    if (!scripting_.LoadScript(std::string(AXIOM_ASSET_ROOT) + "/scripts/rotate.lua")) {
+        for (const auto& error : scripting_.Errors()) {
+            std::cerr << "Axiom script " << error.phase << " error: " << error.message << '\n';
+        }
+        scripting_.ClearErrors();
+    }
 
     if (!input_.LoadActionMap(actionMapPath)) {
         input_.ClearBindings();
         input_.AddAxisBinding("RotateYaw", GLFW_KEY_A, GLFW_KEY_D, 2.0F);
+        input_.AddAxisBinding("RotateYaw", GLFW_KEY_LEFT, GLFW_KEY_RIGHT, 2.0F);
         input_.AddMouseAxisBinding("RotateYaw", 0, 0.01F);
         input_.AddGamepadAxisBinding("RotateYaw", GLFW_GAMEPAD_AXIS_RIGHT_X, 1.0F);
         input_.AddGamepadButtonBinding("RotateYaw", GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER, 0.5F);
         input_.AddKeyBinding("SensitivityPreset1", GLFW_KEY_1);
+        input_.AddGamepadButtonBinding("SensitivityPreset1", GLFW_GAMEPAD_BUTTON_X);
         input_.AddKeyBinding("SensitivityPreset2", GLFW_KEY_2);
+        input_.AddGamepadButtonBinding("SensitivityPreset2", GLFW_GAMEPAD_BUTTON_Y);
         input_.AddKeyBinding("SensitivityPreset3", GLFW_KEY_3);
+        input_.AddGamepadButtonBinding("SensitivityPreset3", GLFW_GAMEPAD_BUTTON_B);
         input_.AddKeyBinding("RebindLeft", GLFW_KEY_F5);
         input_.AddKeyBinding("RebindAD", GLFW_KEY_F6);
         input_.SetActionDeadzone("RotateYaw", 0.05F);
@@ -120,7 +134,10 @@ int Application::Run() {
                              {GLFW_KEY_F6, renderer_.IsKeyPressed(GLFW_KEY_F6)}};
         snapshot.mouseAxisState = {{0, renderer_.MouseDeltaX()}};
         snapshot.gamepadAxisState = {{GLFW_GAMEPAD_AXIS_RIGHT_X, renderer_.GamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_X)}};
-        snapshot.gamepadButtonState = {{GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER)}};
+        snapshot.gamepadButtonState = {{GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER)},
+                                       {GLFW_GAMEPAD_BUTTON_X, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_X)},
+                                       {GLFW_GAMEPAD_BUTTON_Y, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_Y)},
+                                       {GLFW_GAMEPAD_BUTTON_B, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_B)}};
         input_.EvaluateBindings(snapshot);
 
         if (input_.WasPressed("SensitivityPreset1")) { applyPreset(0); }
@@ -134,8 +151,11 @@ int Application::Run() {
             input_.AddGamepadAxisBinding("RotateYaw", GLFW_GAMEPAD_AXIS_RIGHT_X, 1.0F);
             input_.AddGamepadButtonBinding("RotateYaw", GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER, 0.5F);
             input_.AddKeyBinding("SensitivityPreset1", GLFW_KEY_1);
+            input_.AddGamepadButtonBinding("SensitivityPreset1", GLFW_GAMEPAD_BUTTON_X);
             input_.AddKeyBinding("SensitivityPreset2", GLFW_KEY_2);
+            input_.AddGamepadButtonBinding("SensitivityPreset2", GLFW_GAMEPAD_BUTTON_Y);
             input_.AddKeyBinding("SensitivityPreset3", GLFW_KEY_3);
+            input_.AddGamepadButtonBinding("SensitivityPreset3", GLFW_GAMEPAD_BUTTON_B);
             input_.AddKeyBinding("RebindLeft", GLFW_KEY_F5);
             input_.AddKeyBinding("RebindAD", GLFW_KEY_F6);
             input_.SetActionDeadzone("RotateYaw", 0.05F);
@@ -149,8 +169,11 @@ int Application::Run() {
             input_.AddGamepadAxisBinding("RotateYaw", GLFW_GAMEPAD_AXIS_RIGHT_X, 1.0F);
             input_.AddGamepadButtonBinding("RotateYaw", GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER, 0.5F);
             input_.AddKeyBinding("SensitivityPreset1", GLFW_KEY_1);
+            input_.AddGamepadButtonBinding("SensitivityPreset1", GLFW_GAMEPAD_BUTTON_X);
             input_.AddKeyBinding("SensitivityPreset2", GLFW_KEY_2);
+            input_.AddGamepadButtonBinding("SensitivityPreset2", GLFW_GAMEPAD_BUTTON_Y);
             input_.AddKeyBinding("SensitivityPreset3", GLFW_KEY_3);
+            input_.AddGamepadButtonBinding("SensitivityPreset3", GLFW_GAMEPAD_BUTTON_B);
             input_.AddKeyBinding("RebindLeft", GLFW_KEY_F5);
             input_.AddKeyBinding("RebindAD", GLFW_KEY_F6);
             input_.SetActionDeadzone("RotateYaw", 0.05F);
@@ -181,6 +204,12 @@ int Application::Run() {
                 {scriptJob},
             });
             jobs_.Flush();
+            if (scripting_.HasErrors()) {
+                for (const auto& error : scripting_.Errors()) {
+                    std::cerr << "Axiom script " << error.phase << " error: " << error.message << '\n';
+                }
+                scripting_.ClearErrors();
+            }
 
             accumulator -= fixedStep;
         }

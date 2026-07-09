@@ -182,6 +182,30 @@ float InputSystem::Value(const std::string& actionName) const {
     return it == actions_.end() ? 0.0F : it->second.value;
 }
 
+std::vector<std::string> InputSystem::ActionNames() const {
+    std::vector<std::string> names{};
+    names.reserve(actionMap_.size());
+    for (const auto& [actionName, _] : actionMap_) {
+        names.push_back(actionName);
+    }
+    std::sort(names.begin(), names.end());
+    return names;
+}
+
+std::vector<InputBindingDescription> InputSystem::DescribeBindings(const std::string& actionName) const {
+    std::vector<InputBindingDescription> descriptions{};
+    const auto it = actionMap_.find(actionName);
+    if (it == actionMap_.end()) {
+        return descriptions;
+    }
+
+    descriptions.reserve(it->second.bindings.size());
+    for (const InputBinding& binding : it->second.bindings) {
+        descriptions.push_back({actionName, binding.type, binding.positiveKey, binding.negativeKey, binding.scale});
+    }
+    return descriptions;
+}
+
 float InputSystem::ApplyDeadzoneAndCurve(float value, float deadzone, float curveExponent) {
     const float magnitude = std::abs(value);
     if (magnitude <= deadzone) {

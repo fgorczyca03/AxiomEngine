@@ -5,6 +5,7 @@
 
 #include <fstream>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 namespace axiom::scene {
@@ -23,6 +24,8 @@ struct SerializedEntity {
 SceneSerializer::SceneSerializer(const assets::AssetRegistry* assetRegistry) : assetRegistry_(assetRegistry) {}
 
 void SceneSerializer::SetAssetRegistry(const assets::AssetRegistry* assetRegistry) { assetRegistry_ = assetRegistry; }
+
+const std::vector<SceneSerializer::ValidationIssue>& SceneSerializer::ValidationIssues() const { return validationIssues_; }
 
 bool SceneSerializer::Save(const ecs::ECSWorld& world, const std::string& path) const {
     std::ofstream out(path, std::ios::trunc);
@@ -65,9 +68,13 @@ bool SceneSerializer::Load(ecs::ECSWorld& world, const std::string& path) const 
         return false;
     }
 
+    validationIssues_.clear();
+
     std::vector<SerializedEntity> entities{};
     std::string line;
+    std::size_t lineNumber = 1;
     while (std::getline(in, line)) {
+        ++lineNumber;
         if (line.empty()) {
             continue;
         }
@@ -76,6 +83,7 @@ bool SceneSerializer::Load(ecs::ECSWorld& world, const std::string& path) const 
         std::string tag;
         stream >> tag;
         if (tag != "ENTITY") {
+            RecordValidationIssue(entities.size(), lineNumber, std::string("Unknown scene record tag: ") + tag);
             continue;
         }
 
@@ -90,8 +98,13 @@ bool SceneSerializer::Load(ecs::ECSWorld& world, const std::string& path) const 
         stream >> data.rigidBody.force.x >> data.rigidBody.force.y >> data.rigidBody.force.z;
         stream >> data.rigidBody.halfExtent.x >> data.rigidBody.halfExtent.y >> data.rigidBody.halfExtent.z;
 
+        if (stream.fail()) {
+            RecordValidationIssue(entities.size(), lineNumber, "Malformed ENTITY record");
+            continue;
+        }
+
         data.transform.dirty = true;
-        ValidateMeshComponent(data.mesh);
+        ValidateMeshComponent(data.mesh, entities.size(), lineNumber);
         entities.push_back(data);
     }
 
@@ -106,7 +119,7 @@ bool SceneSerializer::Load(ecs::ECSWorld& world, const std::string& path) const 
     return true;
 }
 
-bool SceneSerializer::ValidateMeshComponent(rendering::MeshComponent& mesh) const {
+bool SceneSerializer::ValidateMeshComponent(rendering::MeshComponent& mesh, std::size_t entityIndex, std::size_t lineNumber) const {
     if (assetRegistry_ == nullptr) {
         return true;
     }
@@ -115,6 +128,7 @@ bool SceneSerializer::ValidateMeshComponent(rendering::MeshComponent& mesh) cons
     if (mesh.meshHandle != 0U) {
         const auto meshAsset = assetRegistry_->FindByHandle(static_cast<assets::AssetHandle>(mesh.meshHandle));
         if (!meshAsset.has_value() || meshAsset->type != assets::AssetType::Mesh) {
+            RecordValidationIssue(entityIndex, lineNumber, "Invalid mesh asset handle");
             mesh.meshHandle = 0U;
             valid = false;
         }
@@ -123,12 +137,17 @@ bool SceneSerializer::ValidateMeshComponent(rendering::MeshComponent& mesh) cons
     if (mesh.materialHandle != 0U) {
         const auto materialAsset = assetRegistry_->FindByHandle(static_cast<assets::AssetHandle>(mesh.materialHandle));
         if (!materialAsset.has_value() || materialAsset->type != assets::AssetType::Material) {
+            RecordValidationIssue(entityIndex, lineNumber, "Invalid material asset handle");
             mesh.materialHandle = 0U;
             valid = false;
         }
     }
 
     return valid;
+}
+
+void SceneSerializer::RecordValidationIssue(std::size_t entityIndex, std::size_t lineNumber, std::string message) const {
+    validationIssues_.push_back({lineNumber, entityIndex, std::move(message)});
 }
 
 } // namespace axiom::scene
