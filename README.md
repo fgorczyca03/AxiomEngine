@@ -121,6 +121,8 @@ If you reconfigure often, `--fresh` avoids stale cache variables from prior buil
 - Add authored material files and hot-reload support for shader/material iteration.
 - Add deterministic replay capture for fixed-step input streams.
 - Add first-person/free-fly camera controls for Sandbox iteration.
+- Improve material/light/shadow quality under the frame-graph path.
+- Expand input mappings (mouse/gamepad/rebinding UI).
 
 ### Mid term (engine maturity)
 
