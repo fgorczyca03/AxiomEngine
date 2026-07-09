@@ -116,6 +116,11 @@ If you reconfigure often, `--fresh` avoids stale cache variables from prior buil
 
 ### Near term (next 1-2 milestones)
 
+- Build the first Axiom Drift vertical-slice room using socket/door puzzle rules.
+- Add a lightweight debug overlay for action maps, frame timings, and scene validation warnings.
+- Add authored material files and hot-reload support for shader/material iteration.
+- Add deterministic replay capture for fixed-step input streams.
+- Add first-person/free-fly camera controls for Sandbox iteration.
 - Improve material/light/shadow quality under the frame-graph path.
 - Expand input mappings (mouse/gamepad/rebinding UI).
 
