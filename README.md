@@ -64,6 +64,33 @@ Run:
 ./build/AxiomRuntime
 ```
 
+## Desktop installation (Linux)
+
+After building, install the runtime and desktop launcher with CMake:
+
+```bash
+cmake --install build --prefix "$HOME/.local"
+```
+
+This installs:
+
+- `AxiomRuntime` to `$HOME/.local/bin`
+- A desktop launcher to `$HOME/.local/share/applications/axiom-engine.desktop`
+- A scalable launcher icon to `$HOME/.local/share/icons/hicolor/scalable/apps/axiom-engine.svg`
+
+Most desktop environments discover those files automatically. If the launcher does not appear right away, update the desktop and icon caches:
+
+```bash
+update-desktop-database "$HOME/.local/share/applications" || true
+gtk-update-icon-cache "$HOME/.local/share/icons/hicolor" || true
+```
+
+For a system-wide install, use a system prefix instead:
+
+```bash
+sudo cmake --install build --prefix /usr/local
+```
+
 ## Linux backend configuration
 
 Linux builds support explicit GLFW backend selection via:

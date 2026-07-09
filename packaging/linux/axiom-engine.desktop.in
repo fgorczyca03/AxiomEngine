@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Axiom Engine
+Comment=Launch the Axiom Engine runtime
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/AxiomRuntime
+Icon=axiom-engine
+Terminal=false
+Categories=Development;Game;
+StartupNotify=true
