@@ -9,6 +9,7 @@
 #include <glm/gtx/quaternion.hpp>
 #include <array>
 #include <filesystem>
+#include <iostream>
 
 #ifndef AXIOM_ASSET_ROOT
 #define AXIOM_ASSET_ROOT "."
@@ -54,6 +55,10 @@ void Application::InitializeScene() {
         }
         sceneSerializer_.Save(world_, scenePath);
     } else {
+        for (const auto& issue : sceneSerializer_.ValidationIssues()) {
+            std::cerr << "Axiom scene validation warning at line " << issue.lineNumber
+                      << " entity " << issue.entityIndex << ": " << issue.message << '\n';
+        }
         world_.ForEach<scene::TransformComponent>([&](ecs::Entity entity, const scene::TransformComponent&) {
             if (cubeEntity_ == 0) {
                 cubeEntity_ = entity;
@@ -61,7 +66,12 @@ void Application::InitializeScene() {
         });
     }
 
-    scripting_.LoadScript(std::string(AXIOM_ASSET_ROOT) + "/scripts/rotate.lua");
+    if (!scripting_.LoadScript(std::string(AXIOM_ASSET_ROOT) + "/scripts/rotate.lua")) {
+        for (const auto& error : scripting_.Errors()) {
+            std::cerr << "Axiom script " << error.phase << " error: " << error.message << '\n';
+        }
+        scripting_.ClearErrors();
+    }
 
     if (!input_.LoadActionMap(actionMapPath)) {
         input_.ClearBindings();
@@ -181,6 +191,12 @@ int Application::Run() {
                 {scriptJob},
             });
             jobs_.Flush();
+            if (scripting_.HasErrors()) {
+                for (const auto& error : scripting_.Errors()) {
+                    std::cerr << "Axiom script " << error.phase << " error: " << error.message << '\n';
+                }
+                scripting_.ClearErrors();
+            }
 
             accumulator -= fixedStep;
         }
