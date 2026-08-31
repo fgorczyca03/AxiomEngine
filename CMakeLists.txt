@@ -57,6 +57,11 @@ FetchContent_Declare(glad
   GIT_TAG v2.0.6)
 FetchContent_MakeAvailable(glad)
 
+# glad v2 exposes a code-generation function instead of a ready-made
+# library target. Generate the OpenGL 4.5 core loader used by Renderer,
+# Shader, and Mesh so clean build trees can link AxiomEngine directly.
+glad_add_library(glad_gl_core_45 REPRODUCIBLE API gl:core=4.5)
+
 FetchContent_Declare(glm
   GIT_REPOSITORY https://github.com/g-truc/glm.git
   GIT_TAG 1.0.1)
@@ -70,7 +75,49 @@ FetchContent_MakeAvailable(sol2)
 FetchContent_Declare(lua
   GIT_REPOSITORY https://github.com/lua/lua.git
   GIT_TAG v5.4.6)
-FetchContent_MakeAvailable(lua)
+FetchContent_GetProperties(lua)
+if(NOT lua_POPULATED)
+  FetchContent_Populate(lua)
+endif()
+
+# The official Lua repository intentionally does not ship a CMake project.
+# Provide the embeddable interpreter library target expected by sol2.
+add_library(lua STATIC
+  ${lua_SOURCE_DIR}/lapi.c
+  ${lua_SOURCE_DIR}/lcode.c
+  ${lua_SOURCE_DIR}/lctype.c
+  ${lua_SOURCE_DIR}/ldebug.c
+  ${lua_SOURCE_DIR}/ldo.c
+  ${lua_SOURCE_DIR}/ldump.c
+  ${lua_SOURCE_DIR}/lfunc.c
+  ${lua_SOURCE_DIR}/lgc.c
+  ${lua_SOURCE_DIR}/llex.c
+  ${lua_SOURCE_DIR}/lmem.c
+  ${lua_SOURCE_DIR}/lobject.c
+  ${lua_SOURCE_DIR}/lopcodes.c
+  ${lua_SOURCE_DIR}/lparser.c
+  ${lua_SOURCE_DIR}/lstate.c
+  ${lua_SOURCE_DIR}/lstring.c
+  ${lua_SOURCE_DIR}/ltable.c
+  ${lua_SOURCE_DIR}/ltm.c
+  ${lua_SOURCE_DIR}/lundump.c
+  ${lua_SOURCE_DIR}/lvm.c
+  ${lua_SOURCE_DIR}/lzio.c
+  ${lua_SOURCE_DIR}/lauxlib.c
+  ${lua_SOURCE_DIR}/lbaselib.c
+  ${lua_SOURCE_DIR}/lcorolib.c
+  ${lua_SOURCE_DIR}/ldblib.c
+  ${lua_SOURCE_DIR}/liolib.c
+  ${lua_SOURCE_DIR}/lmathlib.c
+  ${lua_SOURCE_DIR}/loadlib.c
+  ${lua_SOURCE_DIR}/loslib.c
+  ${lua_SOURCE_DIR}/lstrlib.c
+  ${lua_SOURCE_DIR}/ltablib.c
+  ${lua_SOURCE_DIR}/lutf8lib.c
+  ${lua_SOURCE_DIR}/linit.c
+)
+target_include_directories(lua PUBLIC ${lua_SOURCE_DIR})
+target_compile_definitions(lua PUBLIC LUA_COMPAT_5_3)
 
 FetchContent_Declare(tinygltf
   GIT_REPOSITORY https://github.com/syoyo/tinygltf.git
@@ -109,7 +156,7 @@ target_include_directories(AxiomEngine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${tiny
 target_link_libraries(AxiomEngine
   PUBLIC
     glfw
-    glad
+    glad_gl_core_45
     glm
     sol2
     lua
