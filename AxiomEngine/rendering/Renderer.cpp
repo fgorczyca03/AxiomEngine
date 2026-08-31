@@ -118,6 +118,10 @@ float Renderer::MouseDeltaX() {
 }
 
 bool Renderer::IsGamepadButtonPressed(int button) const {
+    if (button < 0 || button >= GLFW_GAMEPAD_BUTTON_LAST + 1) {
+        return false;
+    }
+
     GLFWgamepadstate state{};
     if (glfwGetGamepadState(GLFW_JOYSTICK_1, &state) == GLFW_FALSE) {
         return false;
@@ -126,6 +130,10 @@ bool Renderer::IsGamepadButtonPressed(int button) const {
 }
 
 float Renderer::GamepadAxis(int axis) const {
+    if (axis < 0 || axis >= GLFW_GAMEPAD_AXIS_LAST + 1) {
+        return 0.0F;
+    }
+
     GLFWgamepadstate state{};
     if (glfwGetGamepadState(GLFW_JOYSTICK_1, &state) == GLFW_FALSE) {
         return 0.0F;

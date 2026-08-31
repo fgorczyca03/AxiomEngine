@@ -47,8 +47,18 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
             return;
         }
 
-        const sol::table resultTable = result.get<sol::table>();
-        transform.local.translation = {resultTable["x"].get_or(transform.local.translation.x), resultTable["y"].get_or(transform.local.translation.y), resultTable["z"].get_or(transform.local.translation.z)};
+        const sol::object resultObject = result.get<sol::object>();
+        if (!resultObject.is<sol::table>()) {
+            RecordError("update", "Update must return a position table");
+            return;
+        }
+
+        const sol::table resultTable = resultObject.as<sol::table>();
+        transform.local.translation = {
+            resultTable["x"].get_or(transform.local.translation.x),
+            resultTable["y"].get_or(transform.local.translation.y),
+            resultTable["z"].get_or(transform.local.translation.z),
+        };
         transform.dirty = true;
     });
 }
