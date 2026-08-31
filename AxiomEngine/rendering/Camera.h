@@ -8,6 +8,7 @@ class Camera {
   public:
     void SetPerspective(float fovRadians, float aspect, float nearPlane, float farPlane);
     [[nodiscard]] glm::mat4 ViewProjection() const;
+    [[nodiscard]] glm::vec3 Position() const;
 
   private:
     glm::vec3 position_{0.0F, 1.5F, 3.5F};

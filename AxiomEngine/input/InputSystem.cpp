@@ -144,17 +144,35 @@ bool InputSystem::LoadActionMap(const std::string& path) {
         stream >> tag;
         if (tag == "ACTION") {
             ActionMapEntry entry{};
-            stream >> currentAction >> entry.deadzone >> entry.curveExponent;
+            if (!(stream >> currentAction >> entry.deadzone >> entry.curveExponent) || currentAction.empty()) {
+                currentAction.clear();
+                continue;
+            }
+
+            entry.deadzone = Clamp01(entry.deadzone);
+            entry.curveExponent = std::max(entry.curveExponent, 0.01F);
             loaded[currentAction] = entry;
         } else if (tag == "BIND" && !currentAction.empty()) {
             std::string type;
             InputBinding binding{};
-            stream >> type >> binding.positiveKey >> binding.negativeKey >> binding.scale;
-            binding.type = InputBindingType::Key;
-            if (type == "AXIS") binding.type = InputBindingType::Axis;
-            else if (type == "MOUSE_AXIS") binding.type = InputBindingType::MouseAxis;
-            else if (type == "GAMEPAD_AXIS") binding.type = InputBindingType::GamepadAxis;
-            else if (type == "GAMEPAD_BUTTON") binding.type = InputBindingType::GamepadButton;
+            if (!(stream >> type >> binding.positiveKey >> binding.negativeKey >> binding.scale)) {
+                continue;
+            }
+
+            if (type == "KEY") {
+                binding.type = InputBindingType::Key;
+            } else if (type == "AXIS") {
+                binding.type = InputBindingType::Axis;
+            } else if (type == "MOUSE_AXIS") {
+                binding.type = InputBindingType::MouseAxis;
+            } else if (type == "GAMEPAD_AXIS") {
+                binding.type = InputBindingType::GamepadAxis;
+            } else if (type == "GAMEPAD_BUTTON") {
+                binding.type = InputBindingType::GamepadButton;
+            } else {
+                continue;
+            }
+
             loaded[currentAction].bindings.push_back(binding);
         } else if (tag == "END_ACTION") {
             currentAction.clear();
@@ -162,6 +180,7 @@ bool InputSystem::LoadActionMap(const std::string& path) {
     }
 
     actionMap_ = std::move(loaded);
+    actions_.clear();
     return true;
 }
 
@@ -180,6 +199,30 @@ bool InputSystem::WasReleased(const std::string& actionName) const {
 float InputSystem::Value(const std::string& actionName) const {
     const auto it = actions_.find(actionName);
     return it == actions_.end() ? 0.0F : it->second.value;
+}
+
+std::vector<std::string> InputSystem::ActionNames() const {
+    std::vector<std::string> names{};
+    names.reserve(actionMap_.size());
+    for (const auto& [actionName, _] : actionMap_) {
+        names.push_back(actionName);
+    }
+    std::sort(names.begin(), names.end());
+    return names;
+}
+
+std::vector<InputBindingDescription> InputSystem::DescribeBindings(const std::string& actionName) const {
+    std::vector<InputBindingDescription> descriptions{};
+    const auto it = actionMap_.find(actionName);
+    if (it == actionMap_.end()) {
+        return descriptions;
+    }
+
+    descriptions.reserve(it->second.bindings.size());
+    for (const InputBinding& binding : it->second.bindings) {
+        descriptions.push_back({actionName, binding.type, binding.positiveKey, binding.negativeKey, binding.scale});
+    }
+    return descriptions;
 }
 
 float InputSystem::ApplyDeadzoneAndCurve(float value, float deadzone, float curveExponent) {

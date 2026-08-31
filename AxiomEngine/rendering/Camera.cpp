@@ -13,4 +13,6 @@ glm::mat4 Camera::ViewProjection() const {
     return projection_ * view;
 }
 
+glm::vec3 Camera::Position() const { return position_; }
+
 } // namespace axiom::rendering

@@ -116,11 +116,11 @@ If you reconfigure often, `--fresh` avoids stale cache variables from prior buil
 
 ### Near term (next 1-2 milestones)
 
-- Improve material/light/shadow quality under the frame-graph path.
-- Expand collision coverage and deterministic Sandbox controls.
-- Improve Lua scripting ergonomics and surfaced script errors.
-- Deepen scene + asset handle validation across authored content.
-- Expand input mappings (mouse/gamepad/rebinding UI).
+- Build the first Axiom Drift vertical-slice room using socket/door puzzle rules.
+- Add a lightweight debug overlay for action maps, frame timings, and scene validation warnings.
+- Add authored material files and hot-reload support for shader/material iteration.
+- Add deterministic replay capture for fixed-step input streams.
+- Add first-person/free-fly camera controls for Sandbox iteration.
 
 ### Mid term (engine maturity)
 

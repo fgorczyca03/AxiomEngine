@@ -7,6 +7,7 @@
 #include <GLFW/glfw3.h>
 #include <glad/gl.h>
 #include <glm/gtc/constants.hpp>
+#include <array>
 
 #ifndef AXIOM_ASSET_ROOT
 #define AXIOM_ASSET_ROOT "."
@@ -46,13 +47,28 @@ bool Renderer::Initialize(int width, int height, const char* title) {
         },
         [&](RenderContext& context) {
             context.shader.Bind();
-            context.shader.SetVec3("uLightPos", {2.0F, 3.0F, 2.0F});
+            context.shader.SetVec3("uLightPos", {2.0F, 4.0F, 2.0F});
+            context.shader.SetVec3("uLightColor", {1.0F, 0.95F, 0.85F});
+            context.shader.SetVec3("uViewPos", context.camera.Position());
+            context.shader.SetFloat("uAmbientStrength", 0.18F);
+            context.shader.SetFloat("uShadowStrength", 0.35F);
 
-            context.world.ForEach<scene::TransformComponent, MeshComponent>([&](ecs::Entity, const scene::TransformComponent& transform, const MeshComponent&) {
-                context.shader.SetMat4("uModel", transform.world);
-                context.shader.SetMat4("uViewProjection", context.camera.ViewProjection());
-                context.mesh.Draw();
-            });
+            constexpr std::array<glm::vec3, 4> materialPalette{
+                glm::vec3{0.25F, 0.65F, 0.95F},
+                glm::vec3{0.95F, 0.42F, 0.28F},
+                glm::vec3{0.35F, 0.9F, 0.55F},
+                glm::vec3{0.85F, 0.75F, 0.35F},
+            };
+
+            context.world.ForEach<scene::TransformComponent, MeshComponent>(
+                [&](ecs::Entity, const scene::TransformComponent& transform, const MeshComponent& mesh) {
+                    const glm::vec3 baseColor = materialPalette[mesh.materialHandle % materialPalette.size()];
+                    context.shader.SetMat4("uModel", transform.world);
+                    context.shader.SetMat4("uViewProjection", context.camera.ViewProjection());
+                    context.shader.SetVec3("uBaseColor", baseColor);
+                    context.shader.SetFloat("uRoughness", mesh.materialHandle == 0U ? 0.65F : 0.35F);
+                    context.mesh.Draw();
+                });
         });
     frameGraph_.Compile();
     glfwGetCursorPos(window_, &lastCursorX_, nullptr);
@@ -102,6 +118,10 @@ float Renderer::MouseDeltaX() {
 }
 
 bool Renderer::IsGamepadButtonPressed(int button) const {
+    if (button < 0 || button >= GLFW_GAMEPAD_BUTTON_LAST + 1) {
+        return false;
+    }
+
     GLFWgamepadstate state{};
     if (glfwGetGamepadState(GLFW_JOYSTICK_1, &state) == GLFW_FALSE) {
         return false;
@@ -110,6 +130,10 @@ bool Renderer::IsGamepadButtonPressed(int button) const {
 }
 
 float Renderer::GamepadAxis(int axis) const {
+    if (axis < 0 || axis >= GLFW_GAMEPAD_AXIS_LAST + 1) {
+        return 0.0F;
+    }
+
     GLFWgamepadstate state{};
     if (glfwGetGamepadState(GLFW_JOYSTICK_1, &state) == GLFW_FALSE) {
         return 0.0F;

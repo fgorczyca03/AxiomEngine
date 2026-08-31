@@ -30,6 +30,14 @@ struct InputBinding {
     float curveExponent{1.0F};
 };
 
+struct InputBindingDescription {
+    std::string actionName{};
+    InputBindingType type{InputBindingType::Key};
+    int positiveCode{0};
+    int negativeCode{0};
+    float scale{1.0F};
+};
+
 struct InputSnapshot {
     std::unordered_map<int, bool> keyState{};
     std::unordered_map<int, float> mouseAxisState{};
@@ -59,6 +67,8 @@ class InputSystem {
     [[nodiscard]] bool WasPressed(const std::string& actionName) const;
     [[nodiscard]] bool WasReleased(const std::string& actionName) const;
     [[nodiscard]] float Value(const std::string& actionName) const;
+    [[nodiscard]] std::vector<std::string> ActionNames() const;
+    [[nodiscard]] std::vector<InputBindingDescription> DescribeBindings(const std::string& actionName) const;
 
   private:
     struct ActionMapEntry {
