@@ -1,3 +1,5 @@
+#include <glad/gl.h>  // MUST be first!
+
 #include "AxiomEngine/rendering/Renderer.h"
 
 #include "AxiomEngine/rendering/Components.h"
@@ -5,7 +7,6 @@
 #include "AxiomEngine/profiling/Profiling.h"
 
 #include <GLFW/glfw3.h>
-#include <glad/gl.h>
 #include <glm/gtc/constants.hpp>
 #include <array>
 
