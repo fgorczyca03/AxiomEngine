@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.23)
-project(AxiomEngine VERSION 0.1.0 LANGUAGES CXX)
+project(AxiomEngine VERSION 0.1.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -9,18 +9,22 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 option(AXIOM_BUILD_SANDBOX "Build sandbox executable" ON)
 option(AXIOM_USE_BULLET "Use Bullet physics backend" OFF)
 
-if(MSVC)
-  add_compile_options(/W4 /permissive-)
-else()
-  add_compile_options(-Wall -Wextra -Wpedantic -Wconversion)
-endif()
+# NOTE: warning flags are intentionally NOT set globally here anymore.
+# They are applied only to Axiom's own targets further down, so that
+# third-party dependencies pulled in via FetchContent (GLFW, glad, sol2,
+# Lua, tinygltf) are not compiled with -Wpedantic/-Wconversion/-permissive-,
+# which they were never written to satisfy.
+set(AXIOM_WARNING_FLAGS
+  $<$<CXX_COMPILER_ID:MSVC>:/W4;/permissive->
+  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall;-Wextra;-Wpedantic;-Wconversion>
+)
 
 include(FetchContent)
 include(GNUInstallDirs)
 
 if(UNIX AND NOT APPLE)
   option(AXIOM_GLFW_USE_WAYLAND "Build GLFW with Wayland backend on Linux" ON)
-  option(AXIOM_GLFW_USE_X11 "Build GLFW with X11 backend on Linux" OFF)
+  option(AXIOM_GLFW_USE_X11 "Build GLFW with X11 backend on Linux" ON)
 
   # Backward compatibility: if callers pass raw GLFW flags,
   # mirror them into AXIOM-prefixed options.
@@ -45,7 +49,13 @@ if(UNIX AND NOT APPLE)
   set(GLFW_BUILD_X11 ${AXIOM_GLFW_USE_X11} CACHE BOOL "" FORCE)
 
   message(STATUS "Axiom GLFW backend: WAYLAND=${AXIOM_GLFW_USE_WAYLAND}, X11=${AXIOM_GLFW_USE_X11}")
+  message(STATUS "Fedora/Nobara note: Wayland needs wayland-devel, wayland-protocols-devel, "
+                  "libxkbcommon-devel. X11 needs libXrandr-devel, libXinerama-devel, "
+                  "libXcursor-devel, libXi-devel, libXext-devel. Both also need "
+                  "mesa-libGL-devel and libglvnd-devel.")
 endif()
+
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 FetchContent_Declare(glfw
   GIT_REPOSITORY https://github.com/glfw/glfw.git
@@ -60,6 +70,7 @@ FetchContent_MakeAvailable(glad)
 # glad v2 exposes a code-generation function instead of a ready-made
 # library target. Generate the OpenGL 4.5 core loader used by Renderer,
 # Shader, and Mesh so clean build trees can link AxiomEngine directly.
+# Requires Python3 on PATH at configure time (checked above).
 glad_add_library(glad_gl_core_45 REPRODUCIBLE API gl:core=4.5)
 
 FetchContent_Declare(glm
@@ -153,6 +164,8 @@ add_library(AxiomEngine STATIC
 
 target_include_directories(AxiomEngine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${tinygltf_SOURCE_DIR})
 
+target_compile_options(AxiomEngine PRIVATE ${AXIOM_WARNING_FLAGS})
+
 target_link_libraries(AxiomEngine
   PUBLIC
     glfw
@@ -170,11 +183,13 @@ endif()
 if(AXIOM_BUILD_SANDBOX)
   add_executable(AxiomSandbox Sandbox/main.cpp)
   target_link_libraries(AxiomSandbox PRIVATE AxiomEngine)
+  target_compile_options(AxiomSandbox PRIVATE ${AXIOM_WARNING_FLAGS})
   target_compile_definitions(AxiomSandbox PRIVATE AXIOM_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/Sandbox")
 endif()
 
 add_executable(AxiomRuntime App/main.cpp)
 target_link_libraries(AxiomRuntime PRIVATE AxiomEngine)
+target_compile_options(AxiomRuntime PRIVATE ${AXIOM_WARNING_FLAGS})
 
 install(TARGETS AxiomRuntime
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
