@@ -64,7 +64,8 @@ FetchContent_MakeAvailable(glfw)
 
 FetchContent_Declare(glad
   GIT_REPOSITORY https://github.com/Dav1dde/glad.git
-  GIT_TAG v2.0.6)
+  GIT_TAG v2.0.6
+  SOURCE_SUBDIR cmake)
 FetchContent_MakeAvailable(glad)
 
 # glad v2 exposes a code-generation function instead of a ready-made
