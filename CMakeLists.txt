@@ -165,10 +165,6 @@ add_library(AxiomEngine STATIC
 
 target_include_directories(AxiomEngine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${tinygltf_SOURCE_DIR})
 
-# Prevent stb_image.h from being included multiple times in the same translation unit
-target_compile_definitions(AxiomEngine PUBLIC STB_IMAGE_STATIC)
-target_compile_definitions(AxiomEngine PRIVATE STB_IMAGE_IMPLEMENTATION)
-
 target_compile_options(AxiomEngine PRIVATE ${AXIOM_WARNING_FLAGS})
 
 target_link_libraries(AxiomEngine
