@@ -124,7 +124,6 @@ If you reconfigure often, `--fresh` avoids stale cache variables from prior buil
 - Add a lightweight debug overlay for action maps, frame timings, and scene validation warnings.
 - Add authored material files and hot-reload support for shader/material iteration.
 - Add deterministic replay capture for fixed-step input streams.
-- Add first-person/free-fly camera controls for Sandbox iteration.
 
 ### Mid term (engine maturity)
 
