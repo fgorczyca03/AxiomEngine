@@ -7,6 +7,7 @@
 
 #include <GLFW/glfw3.h>
 #include <glm/gtx/quaternion.hpp>
+#include <algorithm>
 #include <array>
 #include <filesystem>
 #include <iostream>
@@ -75,9 +76,7 @@ void Application::InitializeScene() {
 
     if (!input_.LoadActionMap(actionMapPath)) {
         input_.ClearBindings();
-        input_.AddAxisBinding("RotateYaw", GLFW_KEY_A, GLFW_KEY_D, 2.0F);
         input_.AddAxisBinding("RotateYaw", GLFW_KEY_LEFT, GLFW_KEY_RIGHT, 2.0F);
-        input_.AddMouseAxisBinding("RotateYaw", 0, 0.01F);
         input_.AddGamepadAxisBinding("RotateYaw", GLFW_GAMEPAD_AXIS_RIGHT_X, 1.0F);
         input_.AddGamepadButtonBinding("RotateYaw", GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER, 0.5F);
         input_.AddKeyBinding("SensitivityPreset1", GLFW_KEY_1);
@@ -91,6 +90,23 @@ void Application::InitializeScene() {
         input_.SetActionDeadzone("RotateYaw", 0.05F);
         input_.SetActionCurveExponent("RotateYaw", 2.0F);
         input_.SaveActionMap(actionMapPath);
+    }
+
+    const auto hasAction = [this](const std::string& actionName) {
+        const auto names = input_.ActionNames();
+        return std::find(names.begin(), names.end(), actionName) != names.end();
+    };
+    if (!hasAction("CameraForward")) {
+        input_.AddAxisBinding("CameraForward", GLFW_KEY_S, GLFW_KEY_W);
+    }
+    if (!hasAction("CameraRight")) {
+        input_.AddAxisBinding("CameraRight", GLFW_KEY_A, GLFW_KEY_D);
+    }
+    if (!hasAction("CameraVertical")) {
+        input_.AddAxisBinding("CameraVertical", GLFW_KEY_Q, GLFW_KEY_E);
+    }
+    if (!hasAction("ToggleCameraLook")) {
+        input_.AddKeyBinding("ToggleCameraLook", GLFW_KEY_F1);
     }
 }
 
@@ -131,14 +147,27 @@ int Application::Run() {
                              {GLFW_KEY_2, renderer_.IsKeyPressed(GLFW_KEY_2)},
                              {GLFW_KEY_3, renderer_.IsKeyPressed(GLFW_KEY_3)},
                              {GLFW_KEY_F5, renderer_.IsKeyPressed(GLFW_KEY_F5)},
-                             {GLFW_KEY_F6, renderer_.IsKeyPressed(GLFW_KEY_F6)}};
-        snapshot.mouseAxisState = {{0, renderer_.MouseDeltaX()}};
+                             {GLFW_KEY_F6, renderer_.IsKeyPressed(GLFW_KEY_F6)},
+                             {GLFW_KEY_W, renderer_.IsKeyPressed(GLFW_KEY_W)},
+                             {GLFW_KEY_A, renderer_.IsKeyPressed(GLFW_KEY_A)},
+                             {GLFW_KEY_S, renderer_.IsKeyPressed(GLFW_KEY_S)},
+                             {GLFW_KEY_D, renderer_.IsKeyPressed(GLFW_KEY_D)},
+                             {GLFW_KEY_Q, renderer_.IsKeyPressed(GLFW_KEY_Q)},
+                             {GLFW_KEY_E, renderer_.IsKeyPressed(GLFW_KEY_E)},
+                             {GLFW_KEY_F1, renderer_.IsKeyPressed(GLFW_KEY_F1)}};
+        glm::vec2 mouseDelta = renderer_.MouseDelta();
+        snapshot.mouseAxisState = {{0, mouseDelta.x}, {1, mouseDelta.y}};
         snapshot.gamepadAxisState = {{GLFW_GAMEPAD_AXIS_RIGHT_X, renderer_.GamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_X)}};
         snapshot.gamepadButtonState = {{GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER)},
                                        {GLFW_GAMEPAD_BUTTON_X, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_X)},
                                        {GLFW_GAMEPAD_BUTTON_Y, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_Y)},
                                        {GLFW_GAMEPAD_BUTTON_B, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_B)}};
         input_.EvaluateBindings(snapshot);
+
+        if (input_.WasPressed("ToggleCameraLook")) {
+            renderer_.SetCursorCaptured(!renderer_.IsCursorCaptured());
+            mouseDelta = glm::vec2(0.0F);
+        }
 
         if (input_.WasPressed("SensitivityPreset1")) { applyPreset(0); }
         if (input_.WasPressed("SensitivityPreset2")) { applyPreset(1); }
@@ -158,6 +187,10 @@ int Application::Run() {
             input_.AddGamepadButtonBinding("SensitivityPreset3", GLFW_GAMEPAD_BUTTON_B);
             input_.AddKeyBinding("RebindLeft", GLFW_KEY_F5);
             input_.AddKeyBinding("RebindAD", GLFW_KEY_F6);
+            input_.AddAxisBinding("CameraForward", GLFW_KEY_S, GLFW_KEY_W);
+            input_.AddAxisBinding("CameraRight", GLFW_KEY_A, GLFW_KEY_D);
+            input_.AddAxisBinding("CameraVertical", GLFW_KEY_Q, GLFW_KEY_E);
+            input_.AddKeyBinding("ToggleCameraLook", GLFW_KEY_F1);
             input_.SetActionDeadzone("RotateYaw", 0.05F);
             applyPreset(activePreset);
         }
@@ -176,10 +209,23 @@ int Application::Run() {
             input_.AddGamepadButtonBinding("SensitivityPreset3", GLFW_GAMEPAD_BUTTON_B);
             input_.AddKeyBinding("RebindLeft", GLFW_KEY_F5);
             input_.AddKeyBinding("RebindAD", GLFW_KEY_F6);
+            input_.AddAxisBinding("CameraForward", GLFW_KEY_S, GLFW_KEY_W);
+            input_.AddAxisBinding("CameraRight", GLFW_KEY_A, GLFW_KEY_D);
+            input_.AddAxisBinding("CameraVertical", GLFW_KEY_Q, GLFW_KEY_E);
+            input_.AddKeyBinding("ToggleCameraLook", GLFW_KEY_F1);
             input_.SetActionDeadzone("RotateYaw", 0.05F);
             applyPreset(activePreset);
         }
         time_.Tick();
+        const float cameraDeltaSeconds =
+            static_cast<float>(std::clamp(time_.DeltaSeconds(), 0.0, 0.1));
+        renderer_.MoveCamera(input_.Value("CameraForward"),
+                             input_.Value("CameraRight"),
+                             input_.Value("CameraVertical"),
+                             cameraDeltaSeconds);
+        if (renderer_.IsCursorCaptured()) {
+            renderer_.RotateCamera(mouseDelta.x, mouseDelta.y);
+        }
         accumulator += static_cast<float>(time_.DeltaSeconds());
 
         while (accumulator >= fixedStep) {

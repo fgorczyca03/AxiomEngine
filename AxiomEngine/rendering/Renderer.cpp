@@ -72,7 +72,7 @@ bool Renderer::Initialize(int width, int height, const char* title) {
                 });
         });
     frameGraph_.Compile();
-    glfwGetCursorPos(window_, &lastCursorX_, nullptr);
+    glfwGetCursorPos(window_, &lastCursorX_, &lastCursorY_);
     return true;
 }
 
@@ -110,13 +110,37 @@ bool Renderer::IsKeyPressed(int keyCode) const {
 }
 
 
-float Renderer::MouseDeltaX() {
+glm::vec2 Renderer::MouseDelta() {
+    if (window_ == nullptr) {
+        return glm::vec2(0.0F);
+    }
+
     double x = 0.0;
-    glfwGetCursorPos(window_, &x, nullptr);
-    const float delta = static_cast<float>(x - lastCursorX_);
+    double y = 0.0;
+    glfwGetCursorPos(window_, &x, &y);
+    const glm::vec2 delta{static_cast<float>(x - lastCursorX_), static_cast<float>(y - lastCursorY_)};
     lastCursorX_ = x;
+    lastCursorY_ = y;
     return delta;
 }
+
+void Renderer::SetCursorCaptured(bool captured) {
+    if (window_ == nullptr || cursorCaptured_ == captured) {
+        return;
+    }
+
+    cursorCaptured_ = captured;
+    glfwSetInputMode(window_, GLFW_CURSOR, captured ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+    glfwGetCursorPos(window_, &lastCursorX_, &lastCursorY_);
+}
+
+bool Renderer::IsCursorCaptured() const { return cursorCaptured_; }
+
+void Renderer::MoveCamera(float forward, float right, float up, float deltaSeconds) {
+    camera_.Move(forward, right, up, deltaSeconds);
+}
+
+void Renderer::RotateCamera(float deltaX, float deltaY) { camera_.Rotate(deltaX, deltaY); }
 
 bool Renderer::IsGamepadButtonPressed(int button) const {
     if (button < 0 || button >= GLFW_GAMEPAD_BUTTON_LAST + 1) {
