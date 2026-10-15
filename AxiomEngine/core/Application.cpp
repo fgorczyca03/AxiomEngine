@@ -113,6 +113,7 @@ void Application::InitializeScene() {
 int Application::Run() {
     AXIOM_PROFILE_FUNCTION();
     if (!renderer_.Initialize(1280, 720, "Axiom Engine")) {
+        std::cerr << "Axiom renderer startup failed; see the GLFW/OpenGL diagnostics above.\n";
         return -1;
     }
 
