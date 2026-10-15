@@ -9,6 +9,7 @@
 #include <GLFW/glfw3.h>
 #include <glm/gtc/constants.hpp>
 #include <array>
+#include <iostream>
 
 #ifndef AXIOM_ASSET_ROOT
 #define AXIOM_ASSET_ROOT "."
@@ -16,9 +17,20 @@
 
 namespace axiom::rendering {
 
+namespace {
+
+void GlfwErrorCallback(int errorCode, const char* description) {
+    std::cerr << "Axiom GLFW error (" << errorCode << "): "
+              << (description != nullptr ? description : "unknown error") << '\n';
+}
+
+} // namespace
+
 bool Renderer::Initialize(int width, int height, const char* title) {
     AXIOM_PROFILE_FUNCTION();
+    glfwSetErrorCallback(GlfwErrorCallback);
     if (glfwInit() == 0) {
+        std::cerr << "Axiom GLFW initialization failed.\n";
         return false;
     }
 
@@ -28,11 +40,21 @@ bool Renderer::Initialize(int width, int height, const char* title) {
 
     window_ = glfwCreateWindow(width, height, title, nullptr, nullptr);
     if (window_ == nullptr) {
+        std::cerr << "Axiom could not create an OpenGL 4.5 core window. "
+                     "Check the GLFW error above and confirm the graphics driver supports OpenGL 4.5.\n";
+        glfwTerminate();
         return false;
     }
 
     glfwMakeContextCurrent(window_);
-    gladLoadGL(glfwGetProcAddress);
+    if (gladLoadGL(glfwGetProcAddress) == 0) {
+        std::cerr << "Axiom could not load OpenGL entry points for the active context. "
+                     "The renderer cannot safely continue.\n";
+        glfwDestroyWindow(window_);
+        window_ = nullptr;
+        glfwTerminate();
+        return false;
+    }
 
     glEnable(GL_DEPTH_TEST);
     camera_.SetPerspective(glm::pi<float>() * 0.25F, static_cast<float>(width) / static_cast<float>(height), 0.1F, 500.0F);
