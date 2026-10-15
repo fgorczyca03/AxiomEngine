@@ -155,7 +155,7 @@ int Application::Run() {
                              {GLFW_KEY_Q, renderer_.IsKeyPressed(GLFW_KEY_Q)},
                              {GLFW_KEY_E, renderer_.IsKeyPressed(GLFW_KEY_E)},
                              {GLFW_KEY_F1, renderer_.IsKeyPressed(GLFW_KEY_F1)}};
-        const glm::vec2 mouseDelta = renderer_.MouseDelta();
+        glm::vec2 mouseDelta = renderer_.MouseDelta();
         snapshot.mouseAxisState = {{0, mouseDelta.x}, {1, mouseDelta.y}};
         snapshot.gamepadAxisState = {{GLFW_GAMEPAD_AXIS_RIGHT_X, renderer_.GamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_X)}};
         snapshot.gamepadButtonState = {{GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER)},
@@ -166,6 +166,7 @@ int Application::Run() {
 
         if (input_.WasPressed("ToggleCameraLook")) {
             renderer_.SetCursorCaptured(!renderer_.IsCursorCaptured());
+            mouseDelta = glm::vec2(0.0F);
         }
 
         if (input_.WasPressed("SensitivityPreset1")) { applyPreset(0); }
