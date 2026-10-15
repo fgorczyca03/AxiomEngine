@@ -39,7 +39,19 @@ void Application::InitializeScene() {
         assetRegistry_.Register(assets::AssetType::Material, std::string(AXIOM_ASSET_ROOT) + "/materials/default.axmat", 0);
         assetRegistry_.SaveToFile(assetRegistryPath);
     }
-    if (!sceneSerializer_.Load(world_, scenePath)) {
+    const bool sceneFileExists = std::filesystem::exists(scenePath);
+    const bool sceneLoaded = sceneSerializer_.Load(world_, scenePath);
+    for (const auto& issue : sceneSerializer_.ValidationIssues()) {
+        std::cerr << "Axiom scene validation warning at line " << issue.lineNumber
+                  << " entity " << issue.entityIndex << ": " << issue.message << '\\n';
+    }
+
+    if (!sceneLoaded) {
+        if (sceneFileExists) {
+            std::cerr << "Axiom scene could not be loaded; using the fallback scene without overwriting the existing file: "
+                      << scenePath << '\\n';
+        }
+
         auto prefabEntity = prefab_.InstantiateFromFile(world_, prefabPath);
         if (!prefabEntity.has_value()) {
             scene::PrefabData prefabData{};
@@ -54,12 +66,10 @@ void Application::InitializeScene() {
         if (prefabEntity.has_value()) {
             cubeEntity_ = *prefabEntity;
         }
-        sceneSerializer_.Save(world_, scenePath);
-    } else {
-        for (const auto& issue : sceneSerializer_.ValidationIssues()) {
-            std::cerr << "Axiom scene validation warning at line " << issue.lineNumber
-                      << " entity " << issue.entityIndex << ": " << issue.message << '\n';
+        if (!sceneFileExists) {
+            sceneSerializer_.Save(world_, scenePath);
         }
+    } else {
         world_.ForEach<scene::TransformComponent>([&](ecs::Entity entity, const scene::TransformComponent&) {
             if (cubeEntity_ == 0) {
                 cubeEntity_ = entity;
@@ -240,11 +250,13 @@ int Application::Run() {
                 "TransformResolve",
                 JobPriority::Normal,
                 [&]() {
-                    if (auto* transform = world_.GetComponent<scene::TransformComponent>(cubeEntity_)) {
-                        const float yawSpeed = input_.Value("RotateYaw");
-                        transform->local.rotation =
-                            glm::normalize(glm::angleAxis(fixedStep * yawSpeed, glm::vec3(0.0F, 1.0F, 0.0F)) * transform->local.rotation);
-                        transform->dirty = true;
+                    if (cubeEntity_ != 0U) {
+                        if (auto* transform = world_.GetComponent<scene::TransformComponent>(cubeEntity_)) {
+                            const float yawSpeed = input_.Value("RotateYaw");
+                            transform->local.rotation = glm::normalize(
+                                glm::angleAxis(fixedStep * yawSpeed, glm::vec3(0.0F, 1.0F, 0.0F)) * transform->local.rotation);
+                            transform->dirty = true;
+                        }
                     }
                     sceneGraph_.UpdateTransforms();
                 },
