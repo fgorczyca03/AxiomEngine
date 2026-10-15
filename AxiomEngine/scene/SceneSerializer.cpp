@@ -108,6 +108,12 @@ bool SceneSerializer::Load(ecs::ECSWorld& world, const std::string& path) const 
         entities.push_back(data);
     }
 
+    // A valid header with no usable entity records is not a successfully
+    // loaded scene. Let the application choose its fallback scene.
+    if (entities.empty()) {
+        return false;
+    }
+
     for (const SerializedEntity& data : entities) {
         const ecs::Entity entity = world.CreateEntity();
         world.AddComponent(entity, data.transform);
