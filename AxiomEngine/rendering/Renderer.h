@@ -22,7 +22,11 @@ class Renderer {
     [[nodiscard]] bool ShouldClose() const;
     void PollEvents() const;
     [[nodiscard]] bool IsKeyPressed(int keyCode) const;
-    [[nodiscard]] float MouseDeltaX();
+    [[nodiscard]] glm::vec2 MouseDelta();
+    void SetCursorCaptured(bool captured);
+    [[nodiscard]] bool IsCursorCaptured() const;
+    void MoveCamera(float forward, float right, float up, float deltaSeconds);
+    void RotateCamera(float deltaX, float deltaY);
     [[nodiscard]] bool IsGamepadButtonPressed(int button) const;
     [[nodiscard]] float GamepadAxis(int axis) const;
 
@@ -33,6 +37,8 @@ class Renderer {
     Mesh cube_{};
     FrameGraph frameGraph_{};
     double lastCursorX_{0.0};
+    double lastCursorY_{0.0};
+    bool cursorCaptured_{false};
 };
 
 } // namespace axiom::rendering
