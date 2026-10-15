@@ -2,6 +2,9 @@
 
 A modular C++20 engine core with explicit module boundaries for long-term systems research.
 
+<img width="1858" height="1082" alt="image" src="https://github.com/user-attachments/assets/2f8e9114-ccc4-4ba0-a3cf-081b39d2c7a2" />
+
+
 ## High-Level Architecture
 
 Axiom is split into simulation and presentation layers that communicate through ECS data, with no hidden global state:
