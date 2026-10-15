@@ -8,9 +8,11 @@ void SceneGraph::UpdateTransforms() {
             if (!transform.dirty) {
                 return;
             }
-            if (node.parent != 0) {
+            if (node.parent != 0 && world_.IsAlive(node.parent)) {
                 if (const auto* parent = world_.GetComponent<TransformComponent>(node.parent)) {
                     transform.world = parent->world * transform.local.LocalMatrix();
+                } else {
+                    transform.world = transform.local.LocalMatrix();
                 }
             } else {
                 transform.world = transform.local.LocalMatrix();

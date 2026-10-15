@@ -23,7 +23,7 @@ Axiom is split into simulation and presentation layers that communicate through 
 - `AxiomEngine/assets`: asset caching interfaces and asset registry/import scaffolding.
 - `AxiomEngine/scripting`: Lua bridge.
 - `AxiomEngine/input`: input polling abstraction with action mapping.
-- `AxiomEngine/editor`: ImGui-compatible editor layer scaffold.
+- `AxiomEngine/editor`: dockable scene editor with hierarchy, inspector, project browser, and console panels.
 - `AxiomEngine/profiling`: pluggable profiler hooks.
 - `Sandbox`: sample application, shaders, scripts, and scene/input content.
 
@@ -63,6 +63,19 @@ Run:
 ```bash
 ./build/AxiomRuntime
 ```
+
+## Editor workspace
+
+The runtime opens a docked editor workspace. Use **GameObject → Create Cube** or
+the **+ Create Cube** button in Hierarchy to add an object. Select an object to
+edit its position, rotation, scale, and rigid body values in Inspector. Delete
+the selected object from Inspector.
+
+Scene shows the live render. Project browses the files in `Sandbox`, and selecting
+a file shows its path and size. **File → Save Scene** or **Ctrl+S** writes the
+current scene to `Sandbox/scenes/default.axscene`. The panel arrangement is saved
+in the ignored `AxiomEditor.ini` file at the repository root. Reopen hidden panels
+from the **Window** menu.
 
 The Sandbox supports free-fly camera iteration: press **F1** to capture or release
 the cursor, use **W/A/S/D** to move horizontally, **Q/E** to move down or up,
@@ -130,7 +143,7 @@ If you reconfigure often, `--fresh` avoids stale cache variables from prior buil
 - Add worker-thread backend for `IJobSystem` and parallelize key phases.
 - Evolve frame-graph resource lifetime/transient planning.
 - Build incremental, dependency-aware asset import recipes.
-- Deliver core editor hierarchy/inspector/gizmos + play-in-editor loop.
+- Add scene transform gizmos and a play-in-editor loop to the initial hierarchy/inspector workspace.
 - Add nested prefab support with override workflows.
 
 ### Long term (production readiness)

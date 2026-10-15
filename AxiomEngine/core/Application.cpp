@@ -127,7 +127,11 @@ int Application::Run() {
         return -1;
     }
 
-    editor_.Initialize();
+    if (!editor_.Initialize(renderer_.GetWindow(), AXIOM_ASSET_ROOT)) {
+        std::cerr << "Axiom editor initialization failed.\n";
+        renderer_.Shutdown();
+        return -1;
+    }
     InitializeScene();
 
     constexpr float fixedStep = 1.0F / 120.0F;
@@ -135,12 +139,14 @@ int Application::Run() {
     const std::array<float, 3> sensitivityPresets{1.0F, 2.0F, 3.5F};
     std::size_t activePreset = 1;
 
-    auto applyPreset = [&](std::size_t presetIndex) {
+    auto applyPreset = [&](std::size_t presetIndex, bool persist) {
         activePreset = std::min(presetIndex, sensitivityPresets.size() - 1);
         input_.SetActionCurveExponent("RotateYaw", sensitivityPresets[activePreset]);
-        input_.SaveActionMap(actionMapPath);
+        if (persist) {
+            input_.SaveActionMap(actionMapPath);
+        }
     };
-    applyPreset(activePreset);
+    applyPreset(activePreset, false);
     float accumulator = 0.0F;
 
     while (!renderer_.ShouldClose()) {
@@ -173,6 +179,13 @@ int Application::Run() {
                                        {GLFW_GAMEPAD_BUTTON_X, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_X)},
                                        {GLFW_GAMEPAD_BUTTON_Y, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_Y)},
                                        {GLFW_GAMEPAD_BUTTON_B, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_B)}};
+        if (editor_.WantsKeyboardCapture()) {
+            snapshot.keyState.clear();
+        }
+        if (editor_.WantsMouseCapture() && !renderer_.IsCursorCaptured()) {
+            snapshot.mouseAxisState.clear();
+            mouseDelta = glm::vec2(0.0F);
+        }
         input_.EvaluateBindings(snapshot);
 
         if (input_.WasPressed("ToggleCameraLook")) {
@@ -180,9 +193,9 @@ int Application::Run() {
             mouseDelta = glm::vec2(0.0F);
         }
 
-        if (input_.WasPressed("SensitivityPreset1")) { applyPreset(0); }
-        if (input_.WasPressed("SensitivityPreset2")) { applyPreset(1); }
-        if (input_.WasPressed("SensitivityPreset3")) { applyPreset(2); }
+        if (input_.WasPressed("SensitivityPreset1")) { applyPreset(0, true); }
+        if (input_.WasPressed("SensitivityPreset2")) { applyPreset(1, true); }
+        if (input_.WasPressed("SensitivityPreset3")) { applyPreset(2, true); }
 
         if (input_.WasPressed("RebindLeft")) {
             input_.ClearBindings();
@@ -203,7 +216,7 @@ int Application::Run() {
             input_.AddAxisBinding("CameraVertical", GLFW_KEY_Q, GLFW_KEY_E);
             input_.AddKeyBinding("ToggleCameraLook", GLFW_KEY_F1);
             input_.SetActionDeadzone("RotateYaw", 0.05F);
-            applyPreset(activePreset);
+            applyPreset(activePreset, true);
         }
 
         if (input_.WasPressed("RebindAD")) {
@@ -225,7 +238,7 @@ int Application::Run() {
             input_.AddAxisBinding("CameraVertical", GLFW_KEY_Q, GLFW_KEY_E);
             input_.AddKeyBinding("ToggleCameraLook", GLFW_KEY_F1);
             input_.SetActionDeadzone("RotateYaw", 0.05F);
-            applyPreset(activePreset);
+            applyPreset(activePreset, true);
         }
         time_.Tick();
         const float cameraDeltaSeconds =
@@ -250,7 +263,7 @@ int Application::Run() {
                 "TransformResolve",
                 JobPriority::Normal,
                 [&]() {
-                    if (cubeEntity_ != 0U) {
+                    if (world_.IsAlive(cubeEntity_)) {
                         if (auto* transform = world_.GetComponent<scene::TransformComponent>(cubeEntity_)) {
                             const float yawSpeed = input_.Value("RotateYaw");
                             transform->local.rotation = glm::normalize(
@@ -273,11 +286,15 @@ int Application::Run() {
             accumulator -= fixedStep;
         }
 
+        if (!renderer_.ResizeSceneViewport(editor_.SceneViewportWidth(), editor_.SceneViewportHeight())) {
+            std::cerr << "Axiom scene viewport resize failed.\n";
+            break;
+        }
         renderer_.BeginFrame();
         renderer_.RenderWorld(world_);
 
         editor_.BeginFrame();
-        editor_.Draw({static_cast<float>(time_.DeltaSeconds())});
+        editor_.Draw({static_cast<float>(time_.DeltaSeconds())}, world_, sceneSerializer_, renderer_.SceneTexture());
         editor_.EndFrame();
 
         renderer_.EndFrame();
