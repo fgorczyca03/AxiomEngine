@@ -64,6 +64,10 @@ Run:
 ./build/AxiomRuntime
 ```
 
+The Sandbox supports free-fly camera iteration: press **F1** to capture or release
+the cursor, use **W/A/S/D** to move horizontally, **Q/E** to move down or up,
+and move the mouse to look while the cursor is captured.
+
 ## Desktop installation (Linux)
 
 After building, install the runtime and desktop launcher with CMake:
