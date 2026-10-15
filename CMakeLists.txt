@@ -165,6 +165,13 @@ add_library(AxiomEngine STATIC
 
 target_include_directories(AxiomEngine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${tinygltf_SOURCE_DIR})
 
+# The runtime currently uses the Sandbox content as its default scene. Keep a
+# build-tree copy so it can find shaders and scripts regardless of the working
+# directory, and so runtime-generated asset state does not modify the source tree.
+set(AXIOM_RUNTIME_ASSET_ROOT "${CMAKE_CURRENT_BINARY_DIR}/Sandbox")
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/Sandbox/" DESTINATION "${AXIOM_RUNTIME_ASSET_ROOT}")
+target_compile_definitions(AxiomEngine PRIVATE AXIOM_ASSET_ROOT="${AXIOM_RUNTIME_ASSET_ROOT}")
+
 target_compile_options(AxiomEngine PRIVATE ${AXIOM_WARNING_FLAGS})
 
 target_link_libraries(AxiomEngine
@@ -185,7 +192,6 @@ if(AXIOM_BUILD_SANDBOX)
   add_executable(AxiomSandbox Sandbox/main.cpp)
   target_link_libraries(AxiomSandbox PRIVATE AxiomEngine)
   target_compile_options(AxiomSandbox PRIVATE ${AXIOM_WARNING_FLAGS})
-  target_compile_definitions(AxiomSandbox PRIVATE AXIOM_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/Sandbox")
 endif()
 
 add_executable(AxiomRuntime App/main.cpp)
