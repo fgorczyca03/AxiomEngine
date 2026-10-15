@@ -187,6 +187,10 @@ int Application::Run() {
             input_.AddGamepadButtonBinding("SensitivityPreset3", GLFW_GAMEPAD_BUTTON_B);
             input_.AddKeyBinding("RebindLeft", GLFW_KEY_F5);
             input_.AddKeyBinding("RebindAD", GLFW_KEY_F6);
+            input_.AddAxisBinding("CameraForward", GLFW_KEY_S, GLFW_KEY_W);
+            input_.AddAxisBinding("CameraRight", GLFW_KEY_A, GLFW_KEY_D);
+            input_.AddAxisBinding("CameraVertical", GLFW_KEY_Q, GLFW_KEY_E);
+            input_.AddKeyBinding("ToggleCameraLook", GLFW_KEY_F1);
             input_.SetActionDeadzone("RotateYaw", 0.05F);
             applyPreset(activePreset);
         }
@@ -205,6 +209,10 @@ int Application::Run() {
             input_.AddGamepadButtonBinding("SensitivityPreset3", GLFW_GAMEPAD_BUTTON_B);
             input_.AddKeyBinding("RebindLeft", GLFW_KEY_F5);
             input_.AddKeyBinding("RebindAD", GLFW_KEY_F6);
+            input_.AddAxisBinding("CameraForward", GLFW_KEY_S, GLFW_KEY_W);
+            input_.AddAxisBinding("CameraRight", GLFW_KEY_A, GLFW_KEY_D);
+            input_.AddAxisBinding("CameraVertical", GLFW_KEY_Q, GLFW_KEY_E);
+            input_.AddKeyBinding("ToggleCameraLook", GLFW_KEY_F1);
             input_.SetActionDeadzone("RotateYaw", 0.05F);
             applyPreset(activePreset);
         }
