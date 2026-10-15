@@ -43,13 +43,13 @@ void Application::InitializeScene() {
     const bool sceneLoaded = sceneSerializer_.Load(world_, scenePath);
     for (const auto& issue : sceneSerializer_.ValidationIssues()) {
         std::cerr << "Axiom scene validation warning at line " << issue.lineNumber
-                  << " entity " << issue.entityIndex << ": " << issue.message << '\\n';
+                  << " entity " << issue.entityIndex << ": " << issue.message << '\n';
     }
 
     if (!sceneLoaded) {
         if (sceneFileExists) {
             std::cerr << "Axiom scene could not be loaded; using the fallback scene without overwriting the existing file: "
-                      << scenePath << '\\n';
+                      << scenePath << '\n';
         }
 
         auto prefabEntity = prefab_.InstantiateFromFile(world_, prefabPath);
