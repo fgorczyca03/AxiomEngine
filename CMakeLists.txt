@@ -79,6 +79,24 @@ FetchContent_Declare(glm
   GIT_TAG 1.0.1)
 FetchContent_MakeAvailable(glm)
 
+# Dear ImGui's docking branch provides the panel layout used by the editor.
+# Keep the dependency on a release tag so clean builds get the same API.
+FetchContent_Declare(imgui
+  GIT_REPOSITORY https://github.com/ocornut/imgui.git
+  GIT_TAG v1.92.6-docking
+  GIT_SHALLOW TRUE)
+FetchContent_MakeAvailable(imgui)
+add_library(imgui STATIC
+  ${imgui_SOURCE_DIR}/imgui.cpp
+  ${imgui_SOURCE_DIR}/imgui_draw.cpp
+  ${imgui_SOURCE_DIR}/imgui_tables.cpp
+  ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+)
+target_include_directories(imgui SYSTEM PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+target_link_libraries(imgui PUBLIC glfw)
+
 FetchContent_Declare(sol2
   GIT_REPOSITORY https://github.com/ThePhD/sol2.git
   GIT_TAG v3.5.0)   # was v3.3.1 — 3.3.1 predates the sol::optional<T&> fix
@@ -165,6 +183,11 @@ add_library(AxiomEngine STATIC
 
 target_include_directories(AxiomEngine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${tinygltf_SOURCE_DIR})
 
+# Resolve project content independently of the process working directory. The
+# editor saves the active scene back into this project content folder.
+set(AXIOM_PROJECT_ASSET_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/Sandbox")
+target_compile_definitions(AxiomEngine PRIVATE AXIOM_ASSET_ROOT="${AXIOM_PROJECT_ASSET_ROOT}")
+
 target_compile_options(AxiomEngine PRIVATE ${AXIOM_WARNING_FLAGS})
 
 target_link_libraries(AxiomEngine
@@ -174,7 +197,9 @@ target_link_libraries(AxiomEngine
     glm
     sol2
     lua
+    imgui
 )
+target_compile_definitions(AxiomEngine PRIVATE AXIOM_ENABLE_IMGUI=1)
 
 if(AXIOM_USE_BULLET)
   target_link_libraries(AxiomEngine PUBLIC Bullet3::BulletDynamics Bullet3::BulletCollision Bullet3::LinearMath)
@@ -185,7 +210,6 @@ if(AXIOM_BUILD_SANDBOX)
   add_executable(AxiomSandbox Sandbox/main.cpp)
   target_link_libraries(AxiomSandbox PRIVATE AxiomEngine)
   target_compile_options(AxiomSandbox PRIVATE ${AXIOM_WARNING_FLAGS})
-  target_compile_definitions(AxiomSandbox PRIVATE AXIOM_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/Sandbox")
 endif()
 
 add_executable(AxiomRuntime App/main.cpp)

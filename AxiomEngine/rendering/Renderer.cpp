@@ -8,7 +8,9 @@
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/constants.hpp>
+#include <algorithm>
 #include <array>
+#include <iostream>
 
 #ifndef AXIOM_ASSET_ROOT
 #define AXIOM_ASSET_ROOT "."
@@ -16,9 +18,20 @@
 
 namespace axiom::rendering {
 
+namespace {
+
+void GlfwErrorCallback(int errorCode, const char* description) {
+    std::cerr << "Axiom GLFW error (" << errorCode << "): "
+              << (description != nullptr ? description : "unknown error") << '\n';
+}
+
+} // namespace
+
 bool Renderer::Initialize(int width, int height, const char* title) {
     AXIOM_PROFILE_FUNCTION();
+    glfwSetErrorCallback(GlfwErrorCallback);
     if (glfwInit() == 0) {
+        std::cerr << "Axiom GLFW initialization failed.\n";
         return false;
     }
 
@@ -28,16 +41,33 @@ bool Renderer::Initialize(int width, int height, const char* title) {
 
     window_ = glfwCreateWindow(width, height, title, nullptr, nullptr);
     if (window_ == nullptr) {
+        std::cerr << "Axiom could not create an OpenGL 4.5 core window. "
+                     "Check the GLFW error above and confirm the graphics driver supports OpenGL 4.5.\n";
+        glfwTerminate();
         return false;
     }
 
     glfwMakeContextCurrent(window_);
-    gladLoadGL(glfwGetProcAddress);
+    if (gladLoadGL(glfwGetProcAddress) == 0) {
+        std::cerr << "Axiom could not load OpenGL entry points for the active context. "
+                     "The renderer cannot safely continue.\n";
+        glfwDestroyWindow(window_);
+        window_ = nullptr;
+        glfwTerminate();
+        return false;
+    }
 
     glEnable(GL_DEPTH_TEST);
-    camera_.SetPerspective(glm::pi<float>() * 0.25F, static_cast<float>(width) / static_cast<float>(height), 0.1F, 500.0F);
     shader_.LoadFromFiles(std::string(AXIOM_ASSET_ROOT) + "/shaders/basic.vert", std::string(AXIOM_ASSET_ROOT) + "/shaders/basic.frag");
     cube_.BuildCube();
+
+    int framebufferWidth = width;
+    int framebufferHeight = height;
+    glfwGetFramebufferSize(window_, &framebufferWidth, &framebufferHeight);
+    if (!ResizeSceneViewport(framebufferWidth, framebufferHeight)) {
+        Shutdown();
+        return false;
+    }
 
     frameGraph_.Reset();
     frameGraph_.AddPass(
@@ -79,21 +109,49 @@ bool Renderer::Initialize(int width, int height, const char* title) {
 void Renderer::Shutdown() {
     AXIOM_PROFILE_FUNCTION();
     if (window_ != nullptr) {
+        glfwMakeContextCurrent(window_);
+        if (sceneDepthBuffer_ != 0U) {
+            glDeleteRenderbuffers(1, &sceneDepthBuffer_);
+            sceneDepthBuffer_ = 0U;
+        }
+        if (sceneColorTexture_ != 0U) {
+            glDeleteTextures(1, &sceneColorTexture_);
+            sceneColorTexture_ = 0U;
+        }
+        if (sceneFramebuffer_ != 0U) {
+            glDeleteFramebuffers(1, &sceneFramebuffer_);
+            sceneFramebuffer_ = 0U;
+        }
         glfwDestroyWindow(window_);
+        window_ = nullptr;
     }
     glfwTerminate();
 }
 
 void Renderer::BeginFrame() {
     AXIOM_PROFILE_FUNCTION();
+    int framebufferWidth = 0;
+    int framebufferHeight = 0;
+    glfwGetFramebufferSize(window_, &framebufferWidth, &framebufferHeight);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, framebufferWidth, framebufferHeight);
     glClearColor(0.1F, 0.1F, 0.15F, 1.0F);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 void Renderer::RenderWorld(ecs::ECSWorld& world) {
     AXIOM_PROFILE_FUNCTION();
+    glBindFramebuffer(GL_FRAMEBUFFER, sceneFramebuffer_);
+    glViewport(0, 0, sceneWidth_, sceneHeight_);
+    glClearColor(0.16F, 0.17F, 0.21F, 1.0F);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     RenderContext context{world, camera_, shader_, cube_};
     frameGraph_.Execute(context);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    int framebufferWidth = 0;
+    int framebufferHeight = 0;
+    glfwGetFramebufferSize(window_, &framebufferWidth, &framebufferHeight);
+    glViewport(0, 0, framebufferWidth, framebufferHeight);
 }
 
 void Renderer::EndFrame() {
@@ -101,9 +159,56 @@ void Renderer::EndFrame() {
     glfwSwapBuffers(window_);
 }
 
+bool Renderer::ResizeSceneViewport(int width, int height) {
+    if (window_ == nullptr) {
+        return false;
+    }
+    width = std::clamp(width, 1, 4096);
+    height = std::clamp(height, 1, 4096);
+    if (width == sceneWidth_ && height == sceneHeight_) {
+        return true;
+    }
+
+    if (sceneFramebuffer_ == 0U) {
+        glGenFramebuffers(1, &sceneFramebuffer_);
+        glGenTextures(1, &sceneColorTexture_);
+        glGenRenderbuffers(1, &sceneDepthBuffer_);
+    }
+
+    glBindTexture(GL_TEXTURE_2D, sceneColorTexture_);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glBindRenderbuffer(GL_RENDERBUFFER, sceneDepthBuffer_);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, sceneFramebuffer_);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, sceneColorTexture_, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, sceneDepthBuffer_);
+    const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        std::cerr << "Axiom could not create the scene viewport framebuffer (status 0x" << std::hex << status << std::dec
+                  << ").\n";
+        return false;
+    }
+
+    sceneWidth_ = width;
+    sceneHeight_ = height;
+    camera_.SetPerspective(glm::pi<float>() * 0.25F, static_cast<float>(width) / static_cast<float>(height), 0.1F, 500.0F);
+    return true;
+}
+
 bool Renderer::ShouldClose() const { return glfwWindowShouldClose(window_) != 0; }
 
 void Renderer::PollEvents() const { glfwPollEvents(); }
+
+GLFWwindow* Renderer::GetWindow() const { return window_; }
+
+unsigned int Renderer::SceneTexture() const { return sceneColorTexture_; }
 
 bool Renderer::IsKeyPressed(int keyCode) const {
     return glfwGetKey(window_, keyCode) == GLFW_PRESS;

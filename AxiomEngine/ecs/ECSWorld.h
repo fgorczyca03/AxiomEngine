@@ -21,6 +21,7 @@ class ECSWorld {
 
     Entity CreateEntity();
     void DestroyEntity(Entity entity);
+    [[nodiscard]] bool IsAlive(Entity entity) const { return locations_.contains(entity); }
 
     template <typename T> void RegisterComponent();
     template <typename T> std::size_t ComponentType();

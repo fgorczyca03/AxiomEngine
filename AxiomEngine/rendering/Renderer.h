@@ -18,9 +18,12 @@ class Renderer {
     void BeginFrame();
     void RenderWorld(ecs::ECSWorld& world);
     void EndFrame();
+    bool ResizeSceneViewport(int width, int height);
 
     [[nodiscard]] bool ShouldClose() const;
     void PollEvents() const;
+    [[nodiscard]] GLFWwindow* GetWindow() const;
+    [[nodiscard]] unsigned int SceneTexture() const;
     [[nodiscard]] bool IsKeyPressed(int keyCode) const;
     [[nodiscard]] glm::vec2 MouseDelta();
     void SetCursorCaptured(bool captured);
@@ -36,6 +39,11 @@ class Renderer {
     Shader shader_{};
     Mesh cube_{};
     FrameGraph frameGraph_{};
+    unsigned int sceneFramebuffer_{0};
+    unsigned int sceneColorTexture_{0};
+    unsigned int sceneDepthBuffer_{0};
+    int sceneWidth_{0};
+    int sceneHeight_{0};
     double lastCursorX_{0.0};
     double lastCursorY_{0.0};
     bool cursorCaptured_{false};
