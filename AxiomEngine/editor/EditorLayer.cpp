@@ -5,6 +5,7 @@
 #include "AxiomEngine/physics/Components.h"
 #include "AxiomEngine/profiling/Profiling.h"
 #include "AxiomEngine/rendering/Components.h"
+#include "AxiomEngine/rendering/Renderer.h"
 #include "AxiomEngine/scene/Components.h"
 #include "AxiomEngine/scene/SceneSerializer.h"
 
@@ -93,7 +94,7 @@ void EditorLayer::BeginFrame() {
 }
 
 void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, scene::SceneSerializer& serializer,
-                       unsigned int sceneTexture) {
+                       unsigned int sceneTexture, rendering::Renderer& renderer) {
     if (!initialized_) {
         return;
     }
@@ -164,7 +165,9 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
         DrawHierarchy(world);
     }
     if (showScene_) {
-        DrawScene(sceneTexture);
+        DrawScene(sceneTexture, renderer, frameInfo.deltaSeconds);
+    } else {
+        sceneNavigationActive_ = false;
     }
     if (showInspector_) {
         DrawInspector(world);
@@ -192,7 +195,6 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
         ImGui::End();
     }
 
-    (void)frameInfo;
 }
 
 void EditorLayer::EndFrame() {
@@ -345,13 +347,14 @@ void EditorLayer::DrawInspector(ecs::ECSWorld& world) {
     ImGui::End();
 }
 
-void EditorLayer::DrawScene(unsigned int sceneTexture) {
+void EditorLayer::DrawScene(unsigned int sceneTexture, rendering::Renderer& renderer, float deltaSeconds) {
     if (!ImGui::Begin("Scene", &showScene_)) {
+        sceneNavigationActive_ = false;
         ImGui::End();
         return;
     }
 
-    ImGui::TextDisabled("Scene View   |   Drag panels to rearrange   |   Edit objects in the Inspector");
+    ImGui::TextDisabled("Right-drag: look/fly  |  WASD: move  |  Q/E: up/down  |  MMB: pan  |  Wheel: zoom  |  Shift: faster");
     ImGui::Separator();
     const ImVec2 available = ImGui::GetContentRegionAvail();
     const ImVec2 framebufferScale = ImGui::GetIO().DisplayFramebufferScale;
@@ -359,6 +362,7 @@ void EditorLayer::DrawScene(unsigned int sceneTexture) {
     sceneViewportHeight_ = std::max(1, static_cast<int>(std::lround(available.y * framebufferScale.y)));
 
     if (sceneTexture == 0U || available.x <= 1.0F || available.y <= 1.0F) {
+        sceneNavigationActive_ = false;
         ImGui::TextDisabled("Waiting for the scene renderer...");
         ImGui::End();
         return;
@@ -377,6 +381,39 @@ void EditorLayer::DrawScene(unsigned int sceneTexture) {
                                cursor.y + (available.y - imageSize.y) * 0.5F));
     ImGui::Image(ImTextureRef(static_cast<ImTextureID>(sceneTexture)), imageSize, ImVec2(0.0F, 1.0F),
                  ImVec2(1.0F, 0.0F));
+
+    ImGuiIO& io = ImGui::GetIO();
+    const bool viewportHovered = ImGui::IsItemHovered();
+    const bool rightMouseDown = ImGui::IsMouseDown(ImGuiMouseButton_Right);
+    if (viewportHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+        sceneNavigationActive_ = true;
+    }
+    if (!rightMouseDown || glfwGetWindowAttrib(window_, GLFW_FOCUSED) == GLFW_FALSE) {
+        sceneNavigationActive_ = false;
+    }
+
+    if (viewportHovered && io.MouseWheel != 0.0F) {
+        renderer.MoveCamera(io.MouseWheel, 0.0F, 0.0F, 0.12F);
+    }
+    if (viewportHovered && ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
+        renderer.MoveCamera(0.0F, -io.MouseDelta.x * 0.02F, io.MouseDelta.y * 0.02F, 0.1F);
+    }
+
+    if (sceneNavigationActive_) {
+        renderer.RotateCamera(io.MouseDelta.x, io.MouseDelta.y);
+
+        const float forward = (glfwGetKey(window_, GLFW_KEY_W) == GLFW_PRESS ? 1.0F : 0.0F) -
+                              (glfwGetKey(window_, GLFW_KEY_S) == GLFW_PRESS ? 1.0F : 0.0F);
+        const float right = (glfwGetKey(window_, GLFW_KEY_D) == GLFW_PRESS ? 1.0F : 0.0F) -
+                            (glfwGetKey(window_, GLFW_KEY_A) == GLFW_PRESS ? 1.0F : 0.0F);
+        const float up = (glfwGetKey(window_, GLFW_KEY_E) == GLFW_PRESS ? 1.0F : 0.0F) -
+                         (glfwGetKey(window_, GLFW_KEY_Q) == GLFW_PRESS ? 1.0F : 0.0F);
+        const bool fast = glfwGetKey(window_, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
+                          glfwGetKey(window_, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+        const float speedMultiplier = fast ? 4.0F : 1.0F;
+        const float safeDeltaSeconds = std::clamp(deltaSeconds, 0.0F, 0.1F);
+        renderer.MoveCamera(forward, right, up, safeDeltaSeconds * speedMultiplier);
+    }
     ImGui::End();
 }
 
