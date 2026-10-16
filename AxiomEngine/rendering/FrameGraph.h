@@ -13,14 +13,12 @@ class ECSWorld;
 namespace axiom::rendering {
 
 class Camera;
-class Mesh;
 class Shader;
 
 struct RenderContext {
     ecs::ECSWorld& world;
     Camera& camera;
     Shader& shader;
-    Mesh& mesh;
 };
 
 class FrameGraphBuilder {

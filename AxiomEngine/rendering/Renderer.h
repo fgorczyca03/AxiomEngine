@@ -2,9 +2,12 @@
 
 #include "AxiomEngine/ecs/ECSWorld.h"
 #include "AxiomEngine/rendering/Camera.h"
+#include "AxiomEngine/rendering/Components.h"
 #include "AxiomEngine/rendering/FrameGraph.h"
 #include "AxiomEngine/rendering/Mesh.h"
 #include "AxiomEngine/rendering/Shader.h"
+
+#include <array>
 
 struct GLFWwindow;
 
@@ -37,7 +40,7 @@ class Renderer {
     GLFWwindow* window_{nullptr};
     Camera camera_{};
     Shader shader_{};
-    Mesh cube_{};
+    std::array<Mesh, PrimitiveShapeCount> primitiveMeshes_{};
     FrameGraph frameGraph_{};
     unsigned int sceneFramebuffer_{0};
     unsigned int sceneColorTexture_{0};

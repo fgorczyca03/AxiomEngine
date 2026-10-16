@@ -1,5 +1,7 @@
 #pragma once
 
+#include "AxiomEngine/rendering/Components.h"
+
 namespace axiom::rendering {
 
 class Mesh {
@@ -7,7 +9,8 @@ class Mesh {
     Mesh() = default;
     ~Mesh();
 
-    void BuildCube();
+    bool Build(PrimitiveShape shape);
+    void Destroy();
     void Draw() const;
 
   private:
