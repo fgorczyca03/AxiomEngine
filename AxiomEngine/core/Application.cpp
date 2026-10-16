@@ -243,11 +243,11 @@ int Application::Run() {
         time_.Tick();
         const float cameraDeltaSeconds =
             static_cast<float>(std::clamp(time_.DeltaSeconds(), 0.0, 0.1));
-        renderer_.MoveCamera(input_.Value("CameraForward"),
-                             input_.Value("CameraRight"),
-                             input_.Value("CameraVertical"),
-                             cameraDeltaSeconds);
         if (renderer_.IsCursorCaptured()) {
+            renderer_.MoveCamera(input_.Value("CameraForward"),
+                                 input_.Value("CameraRight"),
+                                 input_.Value("CameraVertical"),
+                                 cameraDeltaSeconds);
             renderer_.RotateCamera(mouseDelta.x, mouseDelta.y);
         }
         accumulator += static_cast<float>(time_.DeltaSeconds());
@@ -294,7 +294,8 @@ int Application::Run() {
         renderer_.RenderWorld(world_);
 
         editor_.BeginFrame();
-        editor_.Draw({static_cast<float>(time_.DeltaSeconds())}, world_, sceneSerializer_, renderer_.SceneTexture());
+        editor_.Draw({static_cast<float>(time_.DeltaSeconds())}, world_, sceneSerializer_, renderer_.SceneTexture(),
+                     renderer_);
         editor_.EndFrame();
 
         renderer_.EndFrame();

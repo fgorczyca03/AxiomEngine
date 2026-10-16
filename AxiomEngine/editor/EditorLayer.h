@@ -14,6 +14,10 @@ namespace axiom::scene {
 class SceneSerializer;
 }
 
+namespace axiom::rendering {
+class Renderer;
+}
+
 namespace axiom::editor {
 
 struct EditorFrameInfo {
@@ -27,7 +31,7 @@ class EditorLayer {
 
     void BeginFrame();
     void Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, scene::SceneSerializer& serializer,
-              unsigned int sceneTexture);
+              unsigned int sceneTexture, rendering::Renderer& renderer);
     void EndFrame();
 
     [[nodiscard]] int SceneViewportWidth() const;
@@ -39,7 +43,7 @@ class EditorLayer {
     void BuildDefaultLayout(unsigned int dockspaceId, float width, float height);
     void DrawHierarchy(ecs::ECSWorld& world);
     void DrawInspector(ecs::ECSWorld& world);
-    void DrawScene(unsigned int sceneTexture);
+    void DrawScene(unsigned int sceneTexture, rendering::Renderer& renderer, float deltaSeconds);
     void DrawProjectBrowser();
     void DrawAssetDirectory(const std::filesystem::path& directory);
     void DrawConsole();
@@ -66,6 +70,7 @@ class EditorLayer {
     bool showProject_{true};
     bool showConsole_{false};
     bool deleteSelected_{false};
+    bool sceneNavigationActive_{false};
     bool initialized_{false};
 };
 
