@@ -69,10 +69,11 @@ Run:
 
 ## Editor workspace
 
-The runtime opens a docked editor workspace. Use **GameObject → Create Cube** or
-the **+ Create Cube** button in Hierarchy to add an object. Select an object to
-edit its position, rotation, scale, and rigid body values in Inspector. Delete
-the selected object from Inspector.
+The runtime opens a docked editor workspace. Use **GameObject → Create Shape**
+or the **+ Add Shape** button in Hierarchy to add a cube, sphere, circle, pyramid,
+cone, cylinder, or bean. Select an object to change its shape and edit its
+position, rotation, scale, and rigid body values in Inspector. Delete the
+selected object from Inspector.
 
 Scene shows the live render. Project browses the files in `Sandbox`, and selecting
 a file shows its path and size. **File → Save Scene** or **Ctrl+S** writes the

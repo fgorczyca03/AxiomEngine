@@ -67,7 +67,7 @@ bool EditorLayer::Initialize(GLFWwindow* window, std::filesystem::path assetRoot
     }
 
     initialized_ = true;
-    Log("Editor ready. Add a cube from the Hierarchy panel or GameObject menu.");
+    Log("Editor ready. Add a shape from the Hierarchy panel or GameObject menu.");
     return true;
 }
 
@@ -99,7 +99,6 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
     }
 
     bool requestSave = false;
-    bool requestCreateCube = false;
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->Pos);
     ImGui::SetNextWindowSize(viewport->Size);
@@ -124,7 +123,14 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("GameObject")) {
-            requestCreateCube = ImGui::MenuItem("Create Cube");
+            if (ImGui::BeginMenu("Create Shape")) {
+                for (std::size_t i = 0; i < rendering::PrimitiveShapeNames.size(); ++i) {
+                    if (ImGui::MenuItem(rendering::PrimitiveShapeNames[i].data())) {
+                        CreatePrimitive(world, static_cast<rendering::PrimitiveShape>(i));
+                    }
+                }
+                ImGui::EndMenu();
+            }
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Window")) {
@@ -149,9 +155,6 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
 
     if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
         requestSave = true;
-    }
-    if (requestCreateCube) {
-        CreateCube(world);
     }
     if (requestSave) {
         SaveScene(world, serializer);
@@ -239,8 +242,16 @@ void EditorLayer::DrawHierarchy(ecs::ECSWorld& world) {
         return;
     }
 
-    if (ImGui::Button("+ Create Cube", ImVec2(-1.0F, 0.0F))) {
-        CreateCube(world);
+    if (ImGui::Button("+ Add Shape", ImVec2(-1.0F, 0.0F))) {
+        ImGui::OpenPopup("Add Shape");
+    }
+    if (ImGui::BeginPopup("Add Shape")) {
+        for (std::size_t i = 0; i < rendering::PrimitiveShapeNames.size(); ++i) {
+            if (ImGui::MenuItem(rendering::PrimitiveShapeNames[i].data())) {
+                CreatePrimitive(world, static_cast<rendering::PrimitiveShape>(i));
+            }
+        }
+        ImGui::EndPopup();
     }
     ImGui::Separator();
 
@@ -299,11 +310,25 @@ void EditorLayer::DrawInspector(ecs::ECSWorld& world) {
         }
     }
 
-    if (const auto* mesh = world.GetComponent<rendering::MeshComponent>(selectedEntity_)) {
+    if (auto* mesh = world.GetComponent<rendering::MeshComponent>(selectedEntity_)) {
         if (ImGui::CollapsingHeader("Mesh Renderer", ImGuiTreeNodeFlags_DefaultOpen)) {
+            const std::string_view currentShape = rendering::PrimitiveShapeName(mesh->primitive);
+            if (ImGui::BeginCombo("Shape", currentShape.data())) {
+                for (std::size_t i = 0; i < rendering::PrimitiveShapeNames.size(); ++i) {
+                    const auto shape = static_cast<rendering::PrimitiveShape>(i);
+                    const bool selected = mesh->primitive == shape;
+                    if (ImGui::Selectable(rendering::PrimitiveShapeNames[i].data(), selected)) {
+                        mesh->primitive = shape;
+                    }
+                    if (selected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
             ImGui::Text("Mesh handle: %u", mesh->meshHandle);
             ImGui::Text("Material handle: %u", mesh->materialHandle);
-            ImGui::TextDisabled("The current renderer uses the built-in cube mesh.");
+            ImGui::TextDisabled("Built-in primitive geometry");
         }
     }
     if (auto* body = world.GetComponent<physics::RigidBodyComponent>(selectedEntity_)) {
@@ -455,7 +480,7 @@ void EditorLayer::DrawConsole() {
     ImGui::End();
 }
 
-void EditorLayer::CreateCube(ecs::ECSWorld& world) {
+void EditorLayer::CreatePrimitive(ecs::ECSWorld& world, rendering::PrimitiveShape shape) {
     const ecs::Entity entity = world.CreateEntity();
     scene::TransformComponent transform{};
     std::size_t objectCount = 0;
@@ -464,15 +489,16 @@ void EditorLayer::CreateCube(ecs::ECSWorld& world) {
     transform.local.translation.x = static_cast<float>(objectCount % 5U) * 1.5F;
     transform.local.translation.z = static_cast<float>(objectCount / 5U) * 1.5F;
     scene::SceneNodeComponent node{};
-    rendering::MeshComponent mesh{1U, 2U};
+    rendering::MeshComponent mesh{1U, 2U, shape};
     physics::RigidBodyComponent body{};
     world.AddComponent(entity, transform);
     world.AddComponent(entity, node);
     world.AddComponent(entity, mesh);
     world.AddComponent(entity, body);
     selectedEntity_ = entity;
-    entityNames_.emplace_back(entity, "Cube " + std::to_string(objectCount + 1U));
-    Log("Created Cube " + std::to_string(objectCount + 1U) + ".");
+    const std::string name{rendering::PrimitiveShapeName(shape)};
+    entityNames_.emplace_back(entity, name + " " + std::to_string(objectCount + 1U));
+    Log("Created " + name + " " + std::to_string(objectCount + 1U) + ".");
 }
 
 void EditorLayer::DeleteSelectedEntity(ecs::ECSWorld& world) {

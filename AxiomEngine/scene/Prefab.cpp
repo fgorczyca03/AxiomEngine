@@ -1,6 +1,7 @@
 #include "AxiomEngine/scene/Prefab.h"
 
 #include <fstream>
+#include <cstdint>
 #include <sstream>
 
 namespace axiom::scene {
@@ -28,7 +29,8 @@ bool Prefab::Save(const PrefabData& data, const std::string& path) const {
         out << "NODE " << data.node->parent << "\n";
     }
     if (data.mesh.has_value()) {
-        out << "MESH " << data.mesh->meshHandle << " " << data.mesh->materialHandle << "\n";
+        out << "MESH " << data.mesh->meshHandle << " " << data.mesh->materialHandle << " "
+            << static_cast<std::uint32_t>(data.mesh->primitive) << "\n";
     }
     if (data.rigidBody.has_value()) {
         const auto& rb = *data.rigidBody;
@@ -47,7 +49,8 @@ bool Prefab::Save(const PrefabData& data, const std::string& path) const {
             out << "CHILD_NODE " << child.nodeOverride->parent << "\n";
         }
         if (child.meshOverride.has_value()) {
-            out << "CHILD_MESH " << child.meshOverride->meshHandle << " " << child.meshOverride->materialHandle << "\n";
+            out << "CHILD_MESH " << child.meshOverride->meshHandle << " " << child.meshOverride->materialHandle << " "
+                << static_cast<std::uint32_t>(child.meshOverride->primitive) << "\n";
         }
         if (child.rigidBodyOverride.has_value()) {
             const auto& rb = *child.rigidBodyOverride;
@@ -110,6 +113,10 @@ std::optional<PrefabData> Prefab::Load(const std::string& path) const {
         } else if (tag == "MESH" || tag == "CHILD_MESH") {
             rendering::MeshComponent component{};
             stream >> component.meshHandle >> component.materialHandle;
+            std::uint32_t primitiveValue = 0;
+            if (stream >> primitiveValue && rendering::IsValidPrimitiveShape(primitiveValue)) {
+                component.primitive = static_cast<rendering::PrimitiveShape>(primitiveValue);
+            }
             if (tag == "CHILD_MESH" && activeChild != nullptr) {
                 activeChild->meshOverride = component;
             } else {

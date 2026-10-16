@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AxiomEngine/ecs/ECSWorld.h"
+#include "AxiomEngine/rendering/Components.h"
 
 #include <filesystem>
 #include <string>
@@ -42,7 +43,7 @@ class EditorLayer {
     void DrawProjectBrowser();
     void DrawAssetDirectory(const std::filesystem::path& directory);
     void DrawConsole();
-    void CreateCube(ecs::ECSWorld& world);
+    void CreatePrimitive(ecs::ECSWorld& world, rendering::PrimitiveShape shape);
     void DeleteSelectedEntity(ecs::ECSWorld& world);
     bool SaveScene(ecs::ECSWorld& world, scene::SceneSerializer& serializer);
     void Log(std::string message);

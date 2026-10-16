@@ -4,6 +4,7 @@
 #include "AxiomEngine/scene/Components.h"
 
 #include <fstream>
+#include <charconv>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -50,7 +51,8 @@ bool SceneSerializer::Save(const ecs::ECSWorld& world, const std::string& path) 
                 << rigidBody.mass << " "
                 << rigidBody.velocity.x << " " << rigidBody.velocity.y << " " << rigidBody.velocity.z << " "
                 << rigidBody.force.x << " " << rigidBody.force.y << " " << rigidBody.force.z << " "
-                << rigidBody.halfExtent.x << " " << rigidBody.halfExtent.y << " " << rigidBody.halfExtent.z
+                << rigidBody.halfExtent.x << " " << rigidBody.halfExtent.y << " " << rigidBody.halfExtent.z << " "
+                << static_cast<std::uint32_t>(mesh.primitive)
                 << "\n";
         });
 
@@ -101,6 +103,21 @@ bool SceneSerializer::Load(ecs::ECSWorld& world, const std::string& path) const 
         if (stream.fail()) {
             RecordValidationIssue(entities.size(), lineNumber, "Malformed ENTITY record");
             continue;
+        }
+
+        std::string serializedPrimitive;
+        if (stream >> serializedPrimitive) {
+            std::uint32_t primitiveValue = 0;
+            const auto [end, error] = std::from_chars(serializedPrimitive.data(),
+                                                       serializedPrimitive.data() + serializedPrimitive.size(),
+                                                       primitiveValue);
+            if (error != std::errc{} || end != serializedPrimitive.data() + serializedPrimitive.size() ||
+                !rendering::IsValidPrimitiveShape(primitiveValue)) {
+                RecordValidationIssue(entities.size(), lineNumber, "Invalid primitive shape; defaulting to Cube");
+                data.mesh.primitive = rendering::PrimitiveShape::Cube;
+            } else {
+                data.mesh.primitive = static_cast<rendering::PrimitiveShape>(primitiveValue);
+            }
         }
 
         data.transform.dirty = true;

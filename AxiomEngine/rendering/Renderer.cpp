@@ -59,7 +59,13 @@ bool Renderer::Initialize(int width, int height, const char* title) {
 
     glEnable(GL_DEPTH_TEST);
     shader_.LoadFromFiles(std::string(AXIOM_ASSET_ROOT) + "/shaders/basic.vert", std::string(AXIOM_ASSET_ROOT) + "/shaders/basic.frag");
-    cube_.BuildCube();
+    for (std::size_t i = 0; i < primitiveMeshes_.size(); ++i) {
+        if (!primitiveMeshes_[i].Build(static_cast<PrimitiveShape>(i))) {
+            std::cerr << "Axiom could not build the " << PrimitiveShapeNames[i] << " primitive mesh.\n";
+            Shutdown();
+            return false;
+        }
+    }
 
     int framebufferWidth = width;
     int framebufferHeight = height;
@@ -76,7 +82,7 @@ bool Renderer::Initialize(int width, int height, const char* title) {
             builder.Write(1);
             builder.Write(2);
         },
-        [&](RenderContext& context) {
+        [this](RenderContext& context) {
             context.shader.Bind();
             context.shader.SetVec3("uLightPos", {2.0F, 4.0F, 2.0F});
             context.shader.SetVec3("uLightColor", {1.0F, 0.95F, 0.85F});
@@ -98,7 +104,11 @@ bool Renderer::Initialize(int width, int height, const char* title) {
                     context.shader.SetMat4("uViewProjection", context.camera.ViewProjection());
                     context.shader.SetVec3("uBaseColor", baseColor);
                     context.shader.SetFloat("uRoughness", mesh.materialHandle == 0U ? 0.65F : 0.35F);
-                    context.mesh.Draw();
+                    std::size_t primitiveIndex = static_cast<std::size_t>(mesh.primitive);
+                    if (primitiveIndex >= primitiveMeshes_.size()) {
+                        primitiveIndex = static_cast<std::size_t>(PrimitiveShape::Cube);
+                    }
+                    primitiveMeshes_[primitiveIndex].Draw();
                 });
         });
     frameGraph_.Compile();
@@ -110,6 +120,9 @@ void Renderer::Shutdown() {
     AXIOM_PROFILE_FUNCTION();
     if (window_ != nullptr) {
         glfwMakeContextCurrent(window_);
+        for (Mesh& mesh : primitiveMeshes_) {
+            mesh.Destroy();
+        }
         if (sceneDepthBuffer_ != 0U) {
             glDeleteRenderbuffers(1, &sceneDepthBuffer_);
             sceneDepthBuffer_ = 0U;
@@ -145,7 +158,7 @@ void Renderer::RenderWorld(ecs::ECSWorld& world) {
     glViewport(0, 0, sceneWidth_, sceneHeight_);
     glClearColor(0.16F, 0.17F, 0.21F, 1.0F);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    RenderContext context{world, camera_, shader_, cube_};
+    RenderContext context{world, camera_, shader_};
     frameGraph_.Execute(context);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     int framebufferWidth = 0;
