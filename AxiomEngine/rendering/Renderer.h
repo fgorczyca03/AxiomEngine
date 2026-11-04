@@ -27,6 +27,7 @@ class Renderer {
     void PollEvents() const;
     [[nodiscard]] GLFWwindow* GetWindow() const;
     [[nodiscard]] unsigned int SceneTexture() const;
+    [[nodiscard]] glm::mat4 ViewProjection() const;
     [[nodiscard]] bool IsKeyPressed(int keyCode) const;
     [[nodiscard]] glm::vec2 MouseDelta();
     void SetCursorCaptured(bool captured);

@@ -223,6 +223,8 @@ GLFWwindow* Renderer::GetWindow() const { return window_; }
 
 unsigned int Renderer::SceneTexture() const { return sceneColorTexture_; }
 
+glm::mat4 Renderer::ViewProjection() const { return camera_.ViewProjection(); }
+
 bool Renderer::IsKeyPressed(int keyCode) const {
     return glfwGetKey(window_, keyCode) == GLFW_PRESS;
 }
