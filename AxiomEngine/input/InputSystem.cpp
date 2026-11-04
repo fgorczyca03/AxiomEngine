@@ -73,20 +73,25 @@ void InputSystem::EvaluateBindings(const InputSnapshot& snapshot) {
                 const auto it = snapshot.keyState.find(binding.positiveKey);
                 sample = (it != snapshot.keyState.end() && it->second) ? binding.scale : 0.0F;
             } else if (binding.type == InputBindingType::Axis) {
-                const bool posPressed = snapshot.keyState.contains(binding.positiveKey) && snapshot.keyState.at(binding.positiveKey);
-                const bool negPressed = snapshot.keyState.contains(binding.negativeKey) && snapshot.keyState.at(binding.negativeKey);
+                const auto positive = snapshot.keyState.find(binding.positiveKey);
+                const auto negative = snapshot.keyState.find(binding.negativeKey);
+                const bool posPressed = positive != snapshot.keyState.end() && positive->second;
+                const bool negPressed = negative != snapshot.keyState.end() && negative->second;
                 sample = (posPressed ? 1.0F : 0.0F) - (negPressed ? 1.0F : 0.0F);
                 sample *= binding.scale;
             } else if (binding.type == InputBindingType::MouseAxis) {
-                if (snapshot.mouseAxisState.contains(binding.positiveKey)) {
-                    sample = snapshot.mouseAxisState.at(binding.positiveKey) * binding.scale;
+                const auto axis = snapshot.mouseAxisState.find(binding.positiveKey);
+                if (axis != snapshot.mouseAxisState.end()) {
+                    sample = axis->second * binding.scale;
                 }
             } else if (binding.type == InputBindingType::GamepadAxis) {
-                if (snapshot.gamepadAxisState.contains(binding.positiveKey)) {
-                    sample = snapshot.gamepadAxisState.at(binding.positiveKey) * binding.scale;
+                const auto axis = snapshot.gamepadAxisState.find(binding.positiveKey);
+                if (axis != snapshot.gamepadAxisState.end()) {
+                    sample = axis->second * binding.scale;
                 }
             } else if (binding.type == InputBindingType::GamepadButton) {
-                const bool pressed = snapshot.gamepadButtonState.contains(binding.positiveKey) && snapshot.gamepadButtonState.at(binding.positiveKey);
+                const auto button = snapshot.gamepadButtonState.find(binding.positiveKey);
+                const bool pressed = button != snapshot.gamepadButtonState.end() && button->second;
                 sample = pressed ? binding.scale : 0.0F;
             }
             combinedValue += sample;

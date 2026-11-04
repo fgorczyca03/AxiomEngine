@@ -115,9 +115,8 @@ void PhysicsSystem::Step(ecs::ECSWorld& world, float dt) {
         if (body.transform->local.translation.y < floorCenter) {
             body.transform->local.translation.y = floorCenter;
             if (body.rigidBody->velocity.y < 0.0F) {
-                body.rigidBody->velocity.y *= -Restitution;
+                body.rigidBody->velocity.y = -body.rigidBody->velocity.y * Restitution;
             }
-            body.rigidBody->velocity.y *= -Restitution;
             body.transform->dirty = true;
         }
     }

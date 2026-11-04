@@ -6,9 +6,7 @@
 #include "AxiomEngine/scene/Components.h"
 
 #include <GLFW/glfw3.h>
-#include <glm/gtx/quaternion.hpp>
 #include <algorithm>
-#include <array>
 #include <filesystem>
 #include <iostream>
 
@@ -21,8 +19,11 @@ namespace axiom::core {
 Application::Application() : sceneGraph_(world_) {
     world_.RegisterComponent<scene::TransformComponent>();
     world_.RegisterComponent<scene::SceneNodeComponent>();
+    world_.RegisterComponent<scene::NameComponent>();
+    world_.RegisterComponent<scene::ScriptComponent>();
     world_.RegisterComponent<rendering::MeshComponent>();
     world_.RegisterComponent<physics::RigidBodyComponent>();
+    scripting_.SetAssetRoot(AXIOM_ASSET_ROOT);
 }
 
 void Application::InitializeScene() {
@@ -63,60 +64,44 @@ void Application::InitializeScene() {
             prefabEntity = prefab_.Instantiate(world_, prefabData);
         }
 
-        if (prefabEntity.has_value()) {
-            cubeEntity_ = *prefabEntity;
+        if (prefabEntity.has_value() && world_.GetComponent<scene::NameComponent>(*prefabEntity) == nullptr) {
+            const auto* mesh = world_.GetComponent<rendering::MeshComponent>(*prefabEntity);
+            const std::string name = mesh != nullptr ? std::string(rendering::PrimitiveShapeName(mesh->primitive)) : "Entity";
+            world_.AddComponent(*prefabEntity, scene::NameComponent{name + " 1"});
         }
-        if (!sceneFileExists) {
+
+        if (prefabEntity.has_value() && !sceneFileExists) {
             sceneSerializer_.Save(world_, scenePath);
         }
-    } else {
-        world_.ForEach<scene::TransformComponent>([&](ecs::Entity entity, const scene::TransformComponent&) {
-            if (cubeEntity_ == 0) {
-                cubeEntity_ = entity;
-            }
-        });
     }
 
-    if (!scripting_.LoadScript(std::string(AXIOM_ASSET_ROOT) + "/scripts/rotate.lua")) {
-        for (const auto& error : scripting_.Errors()) {
-            std::cerr << "Axiom script " << error.phase << " error: " << error.message << '\n';
-        }
-        scripting_.ClearErrors();
-    }
-
+    bool actionMapChanged = false;
     if (!input_.LoadActionMap(actionMapPath)) {
         input_.ClearBindings();
-        input_.AddAxisBinding("RotateYaw", GLFW_KEY_LEFT, GLFW_KEY_RIGHT, 2.0F);
-        input_.AddGamepadAxisBinding("RotateYaw", GLFW_GAMEPAD_AXIS_RIGHT_X, 1.0F);
-        input_.AddGamepadButtonBinding("RotateYaw", GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER, 0.5F);
-        input_.AddKeyBinding("SensitivityPreset1", GLFW_KEY_1);
-        input_.AddGamepadButtonBinding("SensitivityPreset1", GLFW_GAMEPAD_BUTTON_X);
-        input_.AddKeyBinding("SensitivityPreset2", GLFW_KEY_2);
-        input_.AddGamepadButtonBinding("SensitivityPreset2", GLFW_GAMEPAD_BUTTON_Y);
-        input_.AddKeyBinding("SensitivityPreset3", GLFW_KEY_3);
-        input_.AddGamepadButtonBinding("SensitivityPreset3", GLFW_GAMEPAD_BUTTON_B);
-        input_.AddKeyBinding("RebindLeft", GLFW_KEY_F5);
-        input_.AddKeyBinding("RebindAD", GLFW_KEY_F6);
-        input_.SetActionDeadzone("RotateYaw", 0.05F);
-        input_.SetActionCurveExponent("RotateYaw", 2.0F);
-        input_.SaveActionMap(actionMapPath);
+        actionMapChanged = true;
     }
-
     const auto hasAction = [this](const std::string& actionName) {
         const auto names = input_.ActionNames();
         return std::find(names.begin(), names.end(), actionName) != names.end();
     };
     if (!hasAction("CameraForward")) {
         input_.AddAxisBinding("CameraForward", GLFW_KEY_S, GLFW_KEY_W);
+        actionMapChanged = true;
     }
     if (!hasAction("CameraRight")) {
         input_.AddAxisBinding("CameraRight", GLFW_KEY_A, GLFW_KEY_D);
+        actionMapChanged = true;
     }
     if (!hasAction("CameraVertical")) {
         input_.AddAxisBinding("CameraVertical", GLFW_KEY_Q, GLFW_KEY_E);
+        actionMapChanged = true;
     }
     if (!hasAction("ToggleCameraLook")) {
         input_.AddKeyBinding("ToggleCameraLook", GLFW_KEY_F1);
+        actionMapChanged = true;
+    }
+    if (actionMapChanged) {
+        input_.SaveActionMap(actionMapPath);
     }
 }
 
@@ -135,18 +120,6 @@ int Application::Run() {
     InitializeScene();
 
     constexpr float fixedStep = 1.0F / 120.0F;
-    const std::string actionMapPath = std::string(AXIOM_ASSET_ROOT) + "/input/default.axinput";
-    const std::array<float, 3> sensitivityPresets{1.0F, 2.0F, 3.5F};
-    std::size_t activePreset = 1;
-
-    auto applyPreset = [&](std::size_t presetIndex, bool persist) {
-        activePreset = std::min(presetIndex, sensitivityPresets.size() - 1);
-        input_.SetActionCurveExponent("RotateYaw", sensitivityPresets[activePreset]);
-        if (persist) {
-            input_.SaveActionMap(actionMapPath);
-        }
-    };
-    applyPreset(activePreset, false);
     float accumulator = 0.0F;
 
     while (!renderer_.ShouldClose()) {
@@ -158,27 +131,12 @@ int Application::Run() {
         input::InputSnapshot snapshot{};
         snapshot.keyState = {{GLFW_KEY_A, renderer_.IsKeyPressed(GLFW_KEY_A)},
                              {GLFW_KEY_D, renderer_.IsKeyPressed(GLFW_KEY_D)},
-                             {GLFW_KEY_LEFT, renderer_.IsKeyPressed(GLFW_KEY_LEFT)},
-                             {GLFW_KEY_RIGHT, renderer_.IsKeyPressed(GLFW_KEY_RIGHT)},
-                             {GLFW_KEY_1, renderer_.IsKeyPressed(GLFW_KEY_1)},
-                             {GLFW_KEY_2, renderer_.IsKeyPressed(GLFW_KEY_2)},
-                             {GLFW_KEY_3, renderer_.IsKeyPressed(GLFW_KEY_3)},
-                             {GLFW_KEY_F5, renderer_.IsKeyPressed(GLFW_KEY_F5)},
-                             {GLFW_KEY_F6, renderer_.IsKeyPressed(GLFW_KEY_F6)},
                              {GLFW_KEY_W, renderer_.IsKeyPressed(GLFW_KEY_W)},
-                             {GLFW_KEY_A, renderer_.IsKeyPressed(GLFW_KEY_A)},
                              {GLFW_KEY_S, renderer_.IsKeyPressed(GLFW_KEY_S)},
-                             {GLFW_KEY_D, renderer_.IsKeyPressed(GLFW_KEY_D)},
                              {GLFW_KEY_Q, renderer_.IsKeyPressed(GLFW_KEY_Q)},
                              {GLFW_KEY_E, renderer_.IsKeyPressed(GLFW_KEY_E)},
                              {GLFW_KEY_F1, renderer_.IsKeyPressed(GLFW_KEY_F1)}};
         glm::vec2 mouseDelta = renderer_.MouseDelta();
-        snapshot.mouseAxisState = {{0, mouseDelta.x}, {1, mouseDelta.y}};
-        snapshot.gamepadAxisState = {{GLFW_GAMEPAD_AXIS_RIGHT_X, renderer_.GamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_X)}};
-        snapshot.gamepadButtonState = {{GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER)},
-                                       {GLFW_GAMEPAD_BUTTON_X, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_X)},
-                                       {GLFW_GAMEPAD_BUTTON_Y, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_Y)},
-                                       {GLFW_GAMEPAD_BUTTON_B, renderer_.IsGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_B)}};
         if (editor_.WantsKeyboardCapture()) {
             snapshot.keyState.clear();
         }
@@ -193,53 +151,6 @@ int Application::Run() {
             mouseDelta = glm::vec2(0.0F);
         }
 
-        if (input_.WasPressed("SensitivityPreset1")) { applyPreset(0, true); }
-        if (input_.WasPressed("SensitivityPreset2")) { applyPreset(1, true); }
-        if (input_.WasPressed("SensitivityPreset3")) { applyPreset(2, true); }
-
-        if (input_.WasPressed("RebindLeft")) {
-            input_.ClearBindings();
-            input_.AddAxisBinding("RotateYaw", GLFW_KEY_LEFT, GLFW_KEY_RIGHT, 2.0F);
-            input_.AddMouseAxisBinding("RotateYaw", 0, 0.01F);
-            input_.AddGamepadAxisBinding("RotateYaw", GLFW_GAMEPAD_AXIS_RIGHT_X, 1.0F);
-            input_.AddGamepadButtonBinding("RotateYaw", GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER, 0.5F);
-            input_.AddKeyBinding("SensitivityPreset1", GLFW_KEY_1);
-            input_.AddGamepadButtonBinding("SensitivityPreset1", GLFW_GAMEPAD_BUTTON_X);
-            input_.AddKeyBinding("SensitivityPreset2", GLFW_KEY_2);
-            input_.AddGamepadButtonBinding("SensitivityPreset2", GLFW_GAMEPAD_BUTTON_Y);
-            input_.AddKeyBinding("SensitivityPreset3", GLFW_KEY_3);
-            input_.AddGamepadButtonBinding("SensitivityPreset3", GLFW_GAMEPAD_BUTTON_B);
-            input_.AddKeyBinding("RebindLeft", GLFW_KEY_F5);
-            input_.AddKeyBinding("RebindAD", GLFW_KEY_F6);
-            input_.AddAxisBinding("CameraForward", GLFW_KEY_S, GLFW_KEY_W);
-            input_.AddAxisBinding("CameraRight", GLFW_KEY_A, GLFW_KEY_D);
-            input_.AddAxisBinding("CameraVertical", GLFW_KEY_Q, GLFW_KEY_E);
-            input_.AddKeyBinding("ToggleCameraLook", GLFW_KEY_F1);
-            input_.SetActionDeadzone("RotateYaw", 0.05F);
-            applyPreset(activePreset, true);
-        }
-
-        if (input_.WasPressed("RebindAD")) {
-            input_.ClearBindings();
-            input_.AddAxisBinding("RotateYaw", GLFW_KEY_A, GLFW_KEY_D, 2.0F);
-            input_.AddMouseAxisBinding("RotateYaw", 0, 0.01F);
-            input_.AddGamepadAxisBinding("RotateYaw", GLFW_GAMEPAD_AXIS_RIGHT_X, 1.0F);
-            input_.AddGamepadButtonBinding("RotateYaw", GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER, 0.5F);
-            input_.AddKeyBinding("SensitivityPreset1", GLFW_KEY_1);
-            input_.AddGamepadButtonBinding("SensitivityPreset1", GLFW_GAMEPAD_BUTTON_X);
-            input_.AddKeyBinding("SensitivityPreset2", GLFW_KEY_2);
-            input_.AddGamepadButtonBinding("SensitivityPreset2", GLFW_GAMEPAD_BUTTON_Y);
-            input_.AddKeyBinding("SensitivityPreset3", GLFW_KEY_3);
-            input_.AddGamepadButtonBinding("SensitivityPreset3", GLFW_GAMEPAD_BUTTON_B);
-            input_.AddKeyBinding("RebindLeft", GLFW_KEY_F5);
-            input_.AddKeyBinding("RebindAD", GLFW_KEY_F6);
-            input_.AddAxisBinding("CameraForward", GLFW_KEY_S, GLFW_KEY_W);
-            input_.AddAxisBinding("CameraRight", GLFW_KEY_A, GLFW_KEY_D);
-            input_.AddAxisBinding("CameraVertical", GLFW_KEY_Q, GLFW_KEY_E);
-            input_.AddKeyBinding("ToggleCameraLook", GLFW_KEY_F1);
-            input_.SetActionDeadzone("RotateYaw", 0.05F);
-            applyPreset(activePreset, true);
-        }
         time_.Tick();
         const float cameraDeltaSeconds =
             static_cast<float>(std::clamp(time_.DeltaSeconds(), 0.0, 0.1));
@@ -262,17 +173,7 @@ int Application::Run() {
             jobs_.Enqueue({
                 "TransformResolve",
                 JobPriority::Normal,
-                [&]() {
-                    if (world_.IsAlive(cubeEntity_)) {
-                        if (auto* transform = world_.GetComponent<scene::TransformComponent>(cubeEntity_)) {
-                            const float yawSpeed = input_.Value("RotateYaw");
-                            transform->local.rotation = glm::normalize(
-                                glm::angleAxis(fixedStep * yawSpeed, glm::vec3(0.0F, 1.0F, 0.0F)) * transform->local.rotation);
-                            transform->dirty = true;
-                        }
-                    }
-                    sceneGraph_.UpdateTransforms();
-                },
+                [&]() { sceneGraph_.UpdateTransforms(); },
                 {scriptJob},
             });
             jobs_.Flush();

@@ -5,6 +5,7 @@
 
 #include <fstream>
 #include <charconv>
+#include <iomanip>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -18,6 +19,10 @@ struct SerializedEntity {
     SceneNodeComponent node{};
     rendering::MeshComponent mesh{};
     physics::RigidBodyComponent rigidBody{};
+    NameComponent name{};
+    ScriptComponent script{};
+    bool hasScript{false};
+    bool hasName{false};
 };
 
 } // namespace
@@ -36,8 +41,8 @@ bool SceneSerializer::Save(const ecs::ECSWorld& world, const std::string& path) 
 
     out << "AXIOM_SCENE_V1\n";
 
-    const_cast<ecs::ECSWorld&>(world).ForEach<TransformComponent, SceneNodeComponent, rendering::MeshComponent, physics::RigidBodyComponent>(
-        [&](ecs::Entity,
+    world.ForEach<TransformComponent, SceneNodeComponent, rendering::MeshComponent, physics::RigidBodyComponent>(
+        [&](ecs::Entity entity,
             const TransformComponent& transform,
             const SceneNodeComponent& node,
             const rendering::MeshComponent& mesh,
@@ -52,11 +57,22 @@ bool SceneSerializer::Save(const ecs::ECSWorld& world, const std::string& path) 
                 << rigidBody.velocity.x << " " << rigidBody.velocity.y << " " << rigidBody.velocity.z << " "
                 << rigidBody.force.x << " " << rigidBody.force.y << " " << rigidBody.force.z << " "
                 << rigidBody.halfExtent.x << " " << rigidBody.halfExtent.y << " " << rigidBody.halfExtent.z << " "
-                << static_cast<std::uint32_t>(mesh.primitive)
-                << "\n";
+                << static_cast<std::uint32_t>(mesh.primitive) << " ";
+            if (const auto* script = world.GetComponent<ScriptComponent>(entity);
+                script != nullptr && !script->scriptPath.empty()) {
+                out << "1 " << std::quoted(script->scriptPath) << " " << script->enabled;
+            } else {
+                out << "0";
+            }
+            if (const auto* name = world.GetComponent<NameComponent>(entity); name != nullptr && !name->value.empty()) {
+                out << " 1 " << std::quoted(name->value);
+            } else {
+                out << " 0";
+            }
+            out << "\n";
         });
 
-    return true;
+    return out.good();
 }
 
 bool SceneSerializer::Load(ecs::ECSWorld& world, const std::string& path) const {
@@ -105,8 +121,13 @@ bool SceneSerializer::Load(ecs::ECSWorld& world, const std::string& path) const 
             continue;
         }
 
-        std::string serializedPrimitive;
-        if (stream >> serializedPrimitive) {
+        stream >> std::ws;
+        if (!stream.eof()) {
+            std::string serializedPrimitive;
+            if (!(stream >> serializedPrimitive)) {
+                RecordValidationIssue(entities.size(), lineNumber, "Malformed primitive shape value");
+                continue;
+            }
             std::uint32_t primitiveValue = 0;
             const auto [end, error] = std::from_chars(serializedPrimitive.data(),
                                                        serializedPrimitive.data() + serializedPrimitive.size(),
@@ -118,10 +139,52 @@ bool SceneSerializer::Load(ecs::ECSWorld& world, const std::string& path) const 
             } else {
                 data.mesh.primitive = static_cast<rendering::PrimitiveShape>(primitiveValue);
             }
+
+            stream >> std::ws;
+            if (!stream.eof()) {
+                unsigned int hasScript = 0;
+                if (!(stream >> hasScript) || hasScript > 1U) {
+                    RecordValidationIssue(entities.size(), lineNumber, "Malformed script attachment flag");
+                    continue;
+                }
+                if (hasScript != 0U) {
+                    if (!(stream >> std::quoted(data.script.scriptPath) >> data.script.enabled) ||
+                        data.script.scriptPath.empty()) {
+                        RecordValidationIssue(entities.size(), lineNumber, "Malformed script attachment");
+                        continue;
+                    }
+                    data.hasScript = true;
+                }
+                stream >> std::ws;
+                if (!stream.eof()) {
+                    unsigned int hasName = 0;
+                    if (!(stream >> hasName) || hasName > 1U) {
+                        RecordValidationIssue(entities.size(), lineNumber, "Malformed entity name flag");
+                        continue;
+                    }
+                    if (hasName != 0U) {
+                        if (!(stream >> std::quoted(data.name.value)) || data.name.value.empty()) {
+                            RecordValidationIssue(entities.size(), lineNumber, "Malformed entity name");
+                            continue;
+                        }
+                        data.hasName = true;
+                    }
+                    stream >> std::ws;
+                    if (!stream.eof()) {
+                        RecordValidationIssue(entities.size(), lineNumber, "Unexpected data after ENTITY record");
+                        continue;
+                    }
+                }
+            }
         }
 
+        if (!data.hasName) {
+            data.name.value = std::string(rendering::PrimitiveShapeName(data.mesh.primitive)) + " " +
+                              std::to_string(entities.size() + 1U);
+            data.hasName = true;
+        }
         data.transform.dirty = true;
-        ValidateMeshComponent(data.mesh, entities.size(), lineNumber);
+        (void)ValidateMeshComponent(data.mesh, entities.size(), lineNumber);
         entities.push_back(data);
     }
 
@@ -137,6 +200,10 @@ bool SceneSerializer::Load(ecs::ECSWorld& world, const std::string& path) const 
         world.AddComponent(entity, data.node);
         world.AddComponent(entity, data.mesh);
         world.AddComponent(entity, data.rigidBody);
+        world.AddComponent(entity, data.name);
+        if (data.hasScript) {
+            world.AddComponent(entity, data.script);
+        }
     }
 
     return true;

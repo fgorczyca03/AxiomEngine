@@ -1,7 +1,7 @@
 local angle = 0.0
 
-function Update(entity, dt, position)
+function Update(entity, dt, transform)
     angle = angle + dt
-    position.y = math.sin(angle) * 0.25
-    return position
+    transform.rotationW = math.cos(angle * 0.5)
+    transform.rotationY = math.sin(angle * 0.5)
 end

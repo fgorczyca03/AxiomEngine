@@ -24,11 +24,14 @@ class ECSWorld {
     [[nodiscard]] bool IsAlive(Entity entity) const { return locations_.contains(entity); }
 
     template <typename T> void RegisterComponent();
-    template <typename T> std::size_t ComponentType();
+    template <typename T> std::size_t ComponentType() const;
     template <typename T> void AddComponent(Entity entity, const T& component);
+    template <typename T> void RemoveComponent(Entity entity);
     template <typename T> T* GetComponent(Entity entity);
+    template <typename T> const T* GetComponent(Entity entity) const;
 
     template <typename... Ts, typename Fn> void ForEach(Fn&& fn);
+    template <typename... Ts, typename Fn> void ForEach(Fn&& fn) const;
 
   private:
     struct IStorage {

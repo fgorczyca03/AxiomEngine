@@ -20,6 +20,7 @@
 #include <array>
 #include <cctype>
 #include <cmath>
+#include <fstream>
 #include <limits>
 #include <system_error>
 
@@ -304,9 +305,8 @@ void EditorLayer::DrawHierarchy(ecs::ECSWorld& world) {
     }
 
     for (const ecs::Entity entity : entities) {
-        const auto named = std::find_if(entityNames_.begin(), entityNames_.end(),
-                                        [entity](const auto& entry) { return entry.first == entity; });
-        const std::string label = named == entityNames_.end() ? "Entity " + std::to_string(entity) : named->second;
+        const auto* name = world.GetComponent<scene::NameComponent>(entity);
+        const std::string label = name != nullptr && !name->value.empty() ? name->value : "Entity " + std::to_string(entity);
         ImGui::PushID(static_cast<int>(entity));
         if (ImGui::Selectable(label.c_str(), selectedEntity_ == entity)) {
             selectedEntity_ = entity;
@@ -334,6 +334,14 @@ void EditorLayer::DrawInspector(ecs::ECSWorld& world) {
 
     ImGui::Text("Entity %u", selectedEntity_);
     ImGui::Separator();
+    if (auto* name = world.GetComponent<scene::NameComponent>(selectedEntity_)) {
+        std::array<char, 128> nameBuffer{};
+        const std::size_t copied = std::min(name->value.size(), nameBuffer.size() - 1U);
+        std::copy_n(name->value.data(), copied, nameBuffer.data());
+        if (ImGui::InputText("Name", nameBuffer.data(), nameBuffer.size())) {
+            name->value = nameBuffer.data();
+        }
+    }
     if (auto* transform = world.GetComponent<scene::TransformComponent>(selectedEntity_)) {
         if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
             bool changed = ImGui::DragFloat3("Position", &transform->local.translation.x, 0.05F);
@@ -375,6 +383,49 @@ void EditorLayer::DrawInspector(ecs::ECSWorld& world) {
             ImGui::DragFloat("Mass", &body->mass, 0.05F, 0.0F, 10000.0F);
             ImGui::DragFloat3("Half Extent", &body->halfExtent.x, 0.05F, 0.0F, 1000.0F);
         }
+    }
+
+    auto* script = world.GetComponent<scene::ScriptComponent>(selectedEntity_);
+    if (script == nullptr && ImGui::Button("+ Add Script", ImVec2(-1.0F, 0.0F))) {
+        world.AddComponent(selectedEntity_, scene::ScriptComponent{});
+        script = world.GetComponent<scene::ScriptComponent>(selectedEntity_);
+        Log("Added a script slot to Entity " + std::to_string(selectedEntity_) + ".");
+    }
+    bool removeScript = false;
+    if (script != nullptr && ImGui::CollapsingHeader("Script", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Checkbox("Enabled", &script->enabled);
+        const std::vector<std::string> scripts = AvailableLuaScripts();
+        const char* currentScript = script->scriptPath.empty() ? "Choose a Lua script..." : script->scriptPath.c_str();
+        if (ImGui::BeginCombo("Source", currentScript)) {
+            for (const std::string& path : scripts) {
+                const bool selected = script->scriptPath == path;
+                if (ImGui::Selectable(path.c_str(), selected)) {
+                    script->scriptPath = path;
+                    script->enabled = true;
+                    script->lastError.clear();
+                    Log("Attached " + path + " to Entity " + std::to_string(selectedEntity_) + ".");
+                }
+                if (selected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+        if (script->scriptPath.empty()) {
+            ImGui::TextDisabled("Create a Lua file in Project, then choose it here.");
+        } else if (std::find(scripts.begin(), scripts.end(), script->scriptPath) == scripts.end()) {
+            ImGui::TextColored(ImVec4(1.0F, 0.55F, 0.35F, 1.0F), "Script file is missing.");
+        }
+        if (!script->lastError.empty()) {
+            ImGui::TextColored(ImVec4(1.0F, 0.45F, 0.4F, 1.0F), "%s", script->lastError.c_str());
+        }
+        if (ImGui::Button("Remove Script", ImVec2(-1.0F, 0.0F))) {
+            removeScript = true;
+        }
+    }
+    if (removeScript) {
+        world.RemoveComponent<scene::ScriptComponent>(selectedEntity_);
+        Log("Removed the script from Entity " + std::to_string(selectedEntity_) + ".");
     }
 
     ImGui::Spacing();
@@ -672,7 +723,13 @@ void EditorLayer::DrawProjectBrowser() {
     ImGui::TextDisabled("PROJECT CONTENTS");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(220.0F);
-    ImGui::InputTextWithHint("##AssetFilter", "Filter assets", assetFilter_, sizeof(assetFilter_));
+    ImGui::InputTextWithHint("##AssetFilter", "Filter assets", assetFilter_.data(), assetFilter_.size());
+    ImGui::SetNextItemWidth(180.0F);
+    ImGui::InputTextWithHint("##NewScriptName", "New Lua script", newScriptName_.data(), newScriptName_.size());
+    ImGui::SameLine();
+    if (ImGui::Button("Create Script")) {
+        CreateLuaScript();
+    }
     ImGui::Separator();
 
     std::error_code error;
@@ -695,7 +752,45 @@ void EditorLayer::DrawProjectBrowser() {
             if (!error) {
                 ImGui::Text("Size: %llu bytes", static_cast<unsigned long long>(bytes));
             }
-            ImGui::TextDisabled("Preview is not available for this file type yet.");
+            if (selectedPath.extension() == ".lua") {
+                if (scriptEditorAsset_ != selectedAsset_) {
+                    std::ifstream scriptFile(selectedPath);
+                    std::string source((std::istreambuf_iterator<char>(scriptFile)), std::istreambuf_iterator<char>());
+                    scriptEditorBuffer_.fill('\0');
+                    scriptEditorTooLarge_ = source.size() >= scriptEditorBuffer_.size();
+                    const std::size_t copied = std::min(source.size(), scriptEditorBuffer_.size() - 1U);
+                    std::copy_n(source.data(), copied, scriptEditorBuffer_.data());
+                    scriptEditorAsset_ = selectedAsset_;
+                    scriptEditorDirty_ = false;
+                }
+                ImGui::TextDisabled("Lua source");
+                if (scriptEditorTooLarge_) {
+                    ImGui::TextColored(ImVec4(1.0F, 0.55F, 0.35F, 1.0F),
+                                       "This file exceeds the 32 KB editor limit and is read-only here.");
+                }
+                ImGui::BeginDisabled(scriptEditorTooLarge_);
+                if (ImGui::InputTextMultiline("##LuaSource", scriptEditorBuffer_.data(), scriptEditorBuffer_.size(),
+                                              ImVec2(-1.0F, 210.0F), ImGuiInputTextFlags_AllowTabInput |
+                                                                          (scriptEditorTooLarge_ ? ImGuiInputTextFlags_ReadOnly : 0))) {
+                    scriptEditorDirty_ = true;
+                }
+                if (ImGui::Button(scriptEditorDirty_ ? "Save Lua Script*" : "Save Lua Script")) {
+                    std::ofstream scriptFile(selectedPath, std::ios::trunc);
+                    if (scriptFile.is_open()) {
+                        scriptFile << scriptEditorBuffer_.data();
+                        scriptEditorDirty_ = !scriptFile.good();
+                        Log(scriptEditorDirty_ ? "Could not save " + selectedAsset_ : "Saved " + selectedAsset_ + ".");
+                    } else {
+                        Log("Could not open " + selectedAsset_ + " for writing.");
+                    }
+                }
+                ImGui::EndDisabled();
+            } else {
+                ImGui::TextDisabled("Preview is not available for this file type yet.");
+                scriptEditorAsset_.clear();
+                scriptEditorDirty_ = false;
+                scriptEditorTooLarge_ = false;
+            }
         }
     }
     ImGui::End();
@@ -704,7 +799,10 @@ void EditorLayer::DrawProjectBrowser() {
 void EditorLayer::DrawAssetDirectory(const std::filesystem::path& directory) {
     std::error_code error;
     std::vector<std::filesystem::directory_entry> entries{};
-    for (std::filesystem::directory_iterator it(directory, error), end; !error && it != end; it.increment(error)) {
+    for (std::filesystem::directory_iterator it(directory, std::filesystem::directory_options::skip_permission_denied,
+                                                error),
+         end;
+         !error && it != end; it.increment(error)) {
         entries.push_back(*it);
     }
     std::sort(entries.begin(), entries.end(), [](const auto& left, const auto& right) {
@@ -716,11 +814,14 @@ void EditorLayer::DrawAssetDirectory(const std::filesystem::path& directory) {
         return left.path().filename().string() < right.path().filename().string();
     });
 
-    std::string filter = assetFilter_;
+    std::string filter = assetFilter_.data();
     std::transform(filter.begin(), filter.end(), filter.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     for (const auto& entry : entries) {
         const std::string relative = entry.path().lexically_relative(assetRoot_).generic_string();
         std::error_code entryError;
+        if (entry.is_symlink(entryError)) {
+            continue;
+        }
         if (entry.is_directory(entryError)) {
             const std::string label = "[+] " + entry.path().filename().string();
             if (ImGui::TreeNodeEx(relative.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth, "%s", label.c_str())) {
@@ -746,6 +847,76 @@ void EditorLayer::DrawAssetDirectory(const std::filesystem::path& directory) {
             ImGui::SetTooltip("%s", entry.path().string().c_str());
         }
     }
+}
+
+std::vector<std::string> EditorLayer::AvailableLuaScripts() const {
+    std::vector<std::string> scripts{};
+    const std::filesystem::path scriptsDirectory = assetRoot_ / "scripts";
+    std::error_code error;
+    if (!std::filesystem::is_directory(scriptsDirectory, error)) {
+        return scripts;
+    }
+
+    std::filesystem::recursive_directory_iterator iterator(
+        scriptsDirectory, std::filesystem::directory_options::skip_permission_denied, error);
+    const std::filesystem::recursive_directory_iterator end{};
+    while (!error && iterator != end) {
+        if (iterator->is_symlink(error)) {
+            iterator.disable_recursion_pending();
+        } else if (iterator->is_regular_file(error) && iterator->path().extension() == ".lua") {
+            scripts.push_back(iterator->path().lexically_relative(assetRoot_).generic_string());
+        }
+        iterator.increment(error);
+    }
+    std::sort(scripts.begin(), scripts.end());
+    return scripts;
+}
+
+void EditorLayer::CreateLuaScript() {
+    std::string name = newScriptName_.data();
+    if (name.ends_with(".lua")) {
+        name.resize(name.size() - 4U);
+    }
+    const bool validName = !name.empty() && std::all_of(name.begin(), name.end(), [](unsigned char character) {
+        return std::isalnum(character) != 0 || character == '_' || character == '-';
+    });
+    if (!validName) {
+        Log("Use only letters, numbers, underscores, or hyphens for a Lua script name.");
+        return;
+    }
+
+    const std::filesystem::path scriptsDirectory = assetRoot_ / "scripts";
+    std::error_code error;
+    std::filesystem::create_directories(scriptsDirectory, error);
+    if (error) {
+        Log("Could not create the scripts folder: " + error.message());
+        return;
+    }
+    const std::filesystem::path scriptPath = scriptsDirectory / (name + ".lua");
+    if (std::filesystem::exists(scriptPath, error)) {
+        Log("A script named " + name + " already exists.");
+        return;
+    }
+
+    std::ofstream scriptFile(scriptPath);
+    if (!scriptFile.is_open()) {
+        Log("Could not create " + scriptPath.filename().string() + ".");
+        return;
+    }
+    scriptFile << "-- Update runs once per fixed simulation step for the attached object.\n"
+                  "-- Edit the transform table to change this object's local transform.\n\n"
+                  "function Update(entity, dt, transform)\n"
+                  "    -- Example: transform.y = transform.y + dt\n"
+                  "end\n";
+    if (!scriptFile.good()) {
+        Log("Could not write the new Lua script.");
+        return;
+    }
+
+    std::fill(newScriptName_.begin(), newScriptName_.end(), '\0');
+    selectedAsset_ = scriptPath.lexically_relative(assetRoot_).generic_string();
+    scriptEditorAsset_.clear();
+    Log("Created " + selectedAsset_ + ". Select an object and attach it from Inspector.");
 }
 
 void EditorLayer::DrawConsole() {
@@ -780,8 +951,9 @@ void EditorLayer::CreatePrimitive(ecs::ECSWorld& world, rendering::PrimitiveShap
     world.AddComponent(entity, body);
     selectedEntity_ = entity;
     const std::string name{rendering::PrimitiveShapeName(shape)};
-    entityNames_.emplace_back(entity, name + " " + std::to_string(objectCount + 1U));
-    Log("Created " + name + " " + std::to_string(objectCount + 1U) + ".");
+    const std::string objectName = name + " " + std::to_string(objectCount + 1U);
+    world.AddComponent(entity, scene::NameComponent{objectName});
+    Log("Created " + objectName + ".");
 }
 
 void EditorLayer::DeleteSelectedEntity(ecs::ECSWorld& world) {
@@ -803,9 +975,6 @@ void EditorLayer::DeleteSelectedEntity(ecs::ECSWorld& world) {
 
     const ecs::Entity removed = selectedEntity_;
     world.DestroyEntity(removed);
-    entityNames_.erase(std::remove_if(entityNames_.begin(), entityNames_.end(),
-                                      [removed](const auto& entry) { return entry.first == removed; }),
-                       entityNames_.end());
     selectedEntity_ = 0U;
     Log("Deleted Entity " + std::to_string(removed) + ".");
 }

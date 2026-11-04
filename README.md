@@ -20,7 +20,7 @@ Axiom is split into simulation and presentation layers that communicate through 
 
 - `AxiomEngine/core`: app loop, deterministic timing, lifetime control, job system contract.
 - `AxiomEngine/ecs`: archetype ECS with SoA component columns and signature-based archetypes.
-- `AxiomEngine/scene`: transform hierarchy, world matrix propagation, scene serialization scaffold.
+- `AxiomEngine/scene`: transform hierarchy, world matrix propagation, validated scene serialization.
 - `AxiomEngine/rendering`: OpenGL bootstrap, shader, mesh, camera, forward renderer, frame graph scaffold.
 - `AxiomEngine/physics`: minimal ECS-driven rigid body stepper.
 - `AxiomEngine/assets`: asset caching interfaces and asset registry/import scaffolding.
@@ -74,19 +74,43 @@ or the **+ Add Shape** button in Hierarchy to add a cube, sphere, circle, pyrami
 cone, cylinder, or bean. Select an object in Hierarchy to change its shape and
 edit its position, rotation, scale, and rigid body values in Inspector. In the
 Scene panel, choose Move, Rotate, or Scale (also **W/E/R**) and drag a colored
-axis or rotation ring to manipulate that object directly. Delete it from
-Inspector.
+axis or rotation ring to manipulate that object directly. Rename it in Inspector;
+object names are saved with the scene. Delete it from Inspector.
 
-Scene shows the live render. Project browses the files in `Sandbox`, and selecting
-a file shows its path and size. **File → Save Scene** or **Ctrl+S** writes the
-current scene to `Sandbox/scenes/default.axscene`. The panel arrangement is saved
-in the ignored `AxiomEditor.ini` file at the repository root. Reopen hidden panels
-from the **Window** menu.
+Add an object script from Inspector with **+ Add Script**, then choose a Lua file
+under `Sandbox/scripts`. Use **Create Script** in Project to make a file, select
+it to edit the source, and save it with **Save Lua Script**. Changed Lua files
+reload automatically. Each attached object gets its own script state, so local
+variables stay independent even when objects use the same file. Script errors are
+shown in Inspector and reported in the terminal; the engine disables a script
+after an error until it is re-enabled.
+
+Scripts define `Update(entity, dt, transform)`, called once per fixed simulation
+step. The `transform` table exposes local position as `x`, `y`, and `z`, rotation
+as quaternion fields `rotationW`, `rotationX`, `rotationY`, and `rotationZ`, and
+scale as `scaleX`, `scaleY`, and `scaleZ`. Change those fields directly; no return
+value is needed. For example:
+
+```lua
+function Update(entity, dt, transform)
+    transform.y = transform.y + dt
+end
+```
+
+Scene shows the live render. Project browses files in `Sandbox`; selecting Lua
+files opens the built-in source editor. **File → Save Scene** or **Ctrl+S** writes
+the current scene, including script attachments, to
+`Sandbox/scenes/default.axscene`. The panel arrangement is saved in the ignored
+`AxiomEditor.ini` file at the repository root. Reopen hidden panels from the
+**Window** menu.
 
 In Scene, hold the **right mouse button** and use **W/A/S/D** to fly while dragging
 to look around. Hold **Q/E** for vertical movement, use **middle-drag** to pan,
 scroll to zoom, and hold **Shift** to move faster. Press **F1** to capture the
 cursor for the separate free-fly camera mode.
+
+The default scene attaches `Sandbox/scripts/rotate.lua` to its cube as a small
+example. Remove or disable it in Inspector if you want a stationary object.
 
 ## Desktop installation (Linux)
 
@@ -147,7 +171,7 @@ If you reconfigure often, `--fresh` avoids stale cache variables from prior buil
 
 ### Mid term (engine maturity)
 
-- Add worker-thread backend for `IJobSystem` and parallelize key phases.
+- Parallelize independent simulation and editor work on the worker-thread job backend.
 - Evolve frame-graph resource lifetime/transient planning.
 - Build incremental, dependency-aware asset import recipes.
 - Add a play-in-editor loop.
