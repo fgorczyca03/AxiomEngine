@@ -203,6 +203,8 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
         DrawScene(world, sceneTexture, renderer, frameInfo.deltaSeconds);
     } else {
         sceneNavigationActive_ = false;
+        gizmoDragging_ = false;
+        gizmoActiveAxis_ = -1;
     }
     if (showInspector_) {
         DrawInspector(world);
@@ -426,6 +428,7 @@ void EditorLayer::DrawScene(ecs::ECSWorld& world, unsigned int sceneTexture, ren
     if (sceneTexture == 0U || available.x <= 1.0F || available.y <= 1.0F) {
         sceneNavigationActive_ = false;
         gizmoDragging_ = false;
+        gizmoActiveAxis_ = -1;
         ImGui::TextDisabled("Waiting for the scene renderer...");
         ImGui::End();
         return;
@@ -452,8 +455,13 @@ void EditorLayer::DrawScene(ecs::ECSWorld& world, unsigned int sceneTexture, ren
     if (viewportHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
         sceneNavigationActive_ = true;
     }
-    if (!rightMouseDown || glfwGetWindowAttrib(window_, GLFW_FOCUSED) == GLFW_FALSE) {
+    const bool windowFocused = glfwGetWindowAttrib(window_, GLFW_FOCUSED) != GLFW_FALSE;
+    if (!rightMouseDown || !windowFocused) {
         sceneNavigationActive_ = false;
+    }
+    if (!windowFocused) {
+        gizmoDragging_ = false;
+        gizmoActiveAxis_ = -1;
     }
     if (viewportHovered && !sceneNavigationActive_ && !gizmoDragging_ && !io.WantTextInput) {
         if (ImGui::IsKeyPressed(ImGuiKey_W)) {
