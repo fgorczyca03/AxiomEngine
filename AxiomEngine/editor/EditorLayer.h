@@ -3,6 +3,7 @@
 #include "AxiomEngine/ecs/ECSWorld.h"
 #include "AxiomEngine/rendering/Components.h"
 
+#include <array>
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -51,6 +52,8 @@ class EditorLayer {
     void DrawScene(ecs::ECSWorld& world, unsigned int sceneTexture, rendering::Renderer& renderer, float deltaSeconds);
     void DrawProjectBrowser();
     void DrawAssetDirectory(const std::filesystem::path& directory);
+    [[nodiscard]] std::vector<std::string> AvailableLuaScripts() const;
+    void CreateLuaScript();
     void DrawConsole();
     void CreatePrimitive(ecs::ECSWorld& world, rendering::PrimitiveShape shape);
     void DeleteSelectedEntity(ecs::ECSWorld& world);
@@ -62,11 +65,13 @@ class EditorLayer {
     std::filesystem::path scenePath_{};
     std::string settingsPath_{};
     ecs::Entity selectedEntity_{0};
-    std::vector<std::pair<ecs::Entity, std::string>> entityNames_{};
     std::vector<std::string> consoleMessages_{};
     std::string selectedAsset_{};
+    std::string scriptEditorAsset_{};
     std::string saveStatus_{};
-    char assetFilter_[128]{};
+    std::array<char, 128> assetFilter_{};
+    std::array<char, 64> newScriptName_{};
+    std::array<char, 32768> scriptEditorBuffer_{};
     int sceneViewportWidth_{1280};
     int sceneViewportHeight_{720};
     bool showHierarchy_{true};
@@ -75,6 +80,8 @@ class EditorLayer {
     bool showProject_{true};
     bool showConsole_{false};
     bool deleteSelected_{false};
+    bool scriptEditorDirty_{false};
+    bool scriptEditorTooLarge_{false};
     bool sceneNavigationActive_{false};
     GizmoMode gizmoMode_{GizmoMode::Translate};
     bool gizmoDragging_{false};

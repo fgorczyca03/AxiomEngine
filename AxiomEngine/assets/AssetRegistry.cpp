@@ -1,8 +1,27 @@
 #include "AxiomEngine/assets/AssetRegistry.h"
 
+#include <algorithm>
+#include <charconv>
 #include <fstream>
+#include <limits>
+#include <string_view>
+#include <system_error>
+#include <utility>
+#include <vector>
 
 namespace axiom::assets {
+
+namespace {
+
+template <typename T> bool ParseUnsigned(std::string_view text, T& value) {
+    if (text.empty()) {
+        return false;
+    }
+    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
+    return error == std::errc{} && end == text.data() + text.size();
+}
+
+} // namespace
 
 AssetHandle AssetRegistry::Register(AssetType type, const std::string& sourcePath, std::uint64_t sourceHash) {
     if (const auto existing = FindByPath(sourcePath); existing.has_value()) {
@@ -69,12 +88,19 @@ bool AssetRegistry::SaveToFile(const std::string& path) const {
     }
 
     out << "# AxiomAssetRegistry v2\n";
-    for (const auto& [handle, meta] : byHandle_) {
+    std::vector<AssetHandle> handles{};
+    handles.reserve(byHandle_.size());
+    for (const auto& [handle, _] : byHandle_) {
+        handles.push_back(handle);
+    }
+    std::sort(handles.begin(), handles.end());
+    for (const AssetHandle handle : handles) {
+        const AssetMetadata& meta = byHandle_.at(handle);
         out << handle << "|" << static_cast<unsigned>(meta.type) << "|" << meta.sourceHash << "|" << meta.sourcePath << "|" << meta.cookedHash
             << "|" << meta.cookedPath << "\n";
     }
 
-    return true;
+    return out.good();
 }
 
 bool AssetRegistry::LoadFromFile(const std::string& path) {
@@ -83,9 +109,9 @@ bool AssetRegistry::LoadFromFile(const std::string& path) {
         return false;
     }
 
-    byHandle_.clear();
-    byPath_.clear();
-    nextHandle_ = 1;
+    std::unordered_map<AssetHandle, AssetMetadata> loadedByHandle{};
+    std::unordered_map<std::string, AssetHandle> loadedByPath{};
+    AssetHandle loadedNextHandle = 1;
 
     std::string line;
     while (std::getline(in, line)) {
@@ -103,24 +129,45 @@ bool AssetRegistry::LoadFromFile(const std::string& path) {
         }
 
         AssetMetadata meta{};
-        meta.handle = static_cast<AssetHandle>(std::stoull(line.substr(0, p0)));
-        meta.type = static_cast<AssetType>(std::stoul(line.substr(p0 + 1, p1 - p0 - 1)));
-        meta.sourceHash = static_cast<std::uint64_t>(std::stoull(line.substr(p1 + 1, p2 - p1 - 1)));
-        if (p3 == std::string::npos || p4 == std::string::npos) {
+        unsigned int typeValue = 0;
+        if (!ParseUnsigned(std::string_view(line).substr(0, p0), meta.handle) || meta.handle == InvalidAssetHandle ||
+            !ParseUnsigned(std::string_view(line).substr(p0 + 1, p1 - p0 - 1), typeValue) ||
+            typeValue > static_cast<unsigned int>(AssetType::Prefab) ||
+            !ParseUnsigned(std::string_view(line).substr(p1 + 1, p2 - p1 - 1), meta.sourceHash)) {
+            continue;
+        }
+        meta.type = static_cast<AssetType>(typeValue);
+        if (p3 == std::string::npos && p4 == std::string::npos) {
             meta.sourcePath = line.substr(p2 + 1);
-        } else {
+        } else if (p3 != std::string::npos && p4 != std::string::npos) {
             meta.sourcePath = line.substr(p2 + 1, p3 - p2 - 1);
-            meta.cookedHash = static_cast<std::uint64_t>(std::stoull(line.substr(p3 + 1, p4 - p3 - 1)));
+            if (!ParseUnsigned(std::string_view(line).substr(p3 + 1, p4 - p3 - 1), meta.cookedHash)) {
+                continue;
+            }
             meta.cookedPath = line.substr(p4 + 1);
+        } else {
+            continue;
         }
 
-        byHandle_[meta.handle] = meta;
-        byPath_[meta.sourcePath] = meta.handle;
-        if (meta.handle >= nextHandle_) {
-            nextHandle_ = meta.handle + 1;
+        if (meta.sourcePath.empty() || loadedByHandle.contains(meta.handle) || loadedByPath.contains(meta.sourcePath)) {
+            continue;
+        }
+
+        const AssetHandle handle = meta.handle;
+        loadedByPath[meta.sourcePath] = handle;
+        loadedByHandle[meta.handle] = std::move(meta);
+        if (handle >= loadedNextHandle) {
+            loadedNextHandle = handle == std::numeric_limits<AssetHandle>::max() ? handle : handle + 1;
         }
     }
 
+    if (loadedByHandle.empty()) {
+        return false;
+    }
+
+    byHandle_ = std::move(loadedByHandle);
+    byPath_ = std::move(loadedByPath);
+    nextHandle_ = loadedNextHandle;
     return true;
 }
 

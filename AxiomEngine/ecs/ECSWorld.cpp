@@ -19,7 +19,11 @@ Entity ECSWorld::CreateEntity() {
 }
 
 void ECSWorld::DestroyEntity(Entity entity) {
-    const auto loc = locations_.at(entity);
+    const auto location = locations_.find(entity);
+    if (location == locations_.end()) {
+        return;
+    }
+    const auto loc = location->second;
     auto& archetype = archetypes_[loc.archetype];
 
     const Entity moved = archetype.entities.back();
@@ -59,10 +63,14 @@ std::size_t ECSWorld::FindOrCreateArchetype(const Signature& signature) {
 }
 
 void ECSWorld::MoveEntity(Entity entity, const Signature& dstSignature, std::optional<std::pair<std::size_t, const void*>> inserted) {
-    const auto srcLoc = locations_.at(entity);
+    const auto srcLocation = locations_.find(entity);
+    if (srcLocation == locations_.end()) {
+        return;
+    }
+    const auto srcLoc = srcLocation->second;
 
     const auto dstIndex = FindOrCreateArchetype(dstSignature);
-        auto& src = archetypes_[srcLoc.archetype];
+    auto& src = archetypes_[srcLoc.archetype];
     auto& dst = archetypes_[dstIndex];
 
     const std::size_t dstRow = dst.entities.size();

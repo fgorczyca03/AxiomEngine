@@ -35,7 +35,6 @@ class Application {
     scene::Prefab prefab_{};
     ThreadPoolJobSystem jobs_{};
     editor::EditorLayer editor_{};
-    ecs::Entity cubeEntity_{0};
 };
 
 } // namespace axiom::core
