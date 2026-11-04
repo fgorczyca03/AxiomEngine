@@ -17,8 +17,10 @@
 #include <glm/gtx/quaternion.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
+#include <limits>
 #include <system_error>
 
 #ifndef AXIOM_ASSET_ROOT
@@ -26,6 +28,39 @@
 #endif
 
 namespace axiom::editor {
+
+namespace {
+
+bool ProjectToScreen(const glm::mat4& viewProjection, const glm::vec3& position, const ImVec2& imageMin,
+                     const ImVec2& imageSize, ImVec2& screenPosition) {
+    const glm::vec4 clip = viewProjection * glm::vec4(position, 1.0F);
+    if (clip.w <= 0.0001F) {
+        return false;
+    }
+
+    const glm::vec3 ndc = glm::vec3(clip) / clip.w;
+    if (!std::isfinite(ndc.x) || !std::isfinite(ndc.y) || !std::isfinite(ndc.z)) {
+        return false;
+    }
+    screenPosition = ImVec2(imageMin.x + (ndc.x + 1.0F) * 0.5F * imageSize.x,
+                            imageMin.y + (1.0F - ndc.y) * 0.5F * imageSize.y);
+    return true;
+}
+
+float DistanceToSegment(const ImVec2& point, const ImVec2& start, const ImVec2& end, float* fraction = nullptr) {
+    const glm::vec2 direction{end.x - start.x, end.y - start.y};
+    const glm::vec2 offset{point.x - start.x, point.y - start.y};
+    const float lengthSquared = glm::dot(direction, direction);
+    const float t = lengthSquared > 0.0001F ? std::clamp(glm::dot(offset, direction) / lengthSquared, 0.0F, 1.0F)
+                                           : 0.0F;
+    if (fraction != nullptr) {
+        *fraction = t;
+    }
+    const glm::vec2 closest = glm::vec2(start.x, start.y) + direction * t;
+    return glm::length(glm::vec2(point.x, point.y) - closest);
+}
+
+} // namespace
 
 bool EditorLayer::Initialize(GLFWwindow* window, std::filesystem::path assetRoot) {
     AXIOM_PROFILE_FUNCTION();
@@ -165,9 +200,11 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
         DrawHierarchy(world);
     }
     if (showScene_) {
-        DrawScene(sceneTexture, renderer, frameInfo.deltaSeconds);
+        DrawScene(world, sceneTexture, renderer, frameInfo.deltaSeconds);
     } else {
         sceneNavigationActive_ = false;
+        gizmoDragging_ = false;
+        gizmoActiveAxis_ = -1;
     }
     if (showInspector_) {
         DrawInspector(world);
@@ -347,14 +384,41 @@ void EditorLayer::DrawInspector(ecs::ECSWorld& world) {
     ImGui::End();
 }
 
-void EditorLayer::DrawScene(unsigned int sceneTexture, rendering::Renderer& renderer, float deltaSeconds) {
+void EditorLayer::DrawScene(ecs::ECSWorld& world, unsigned int sceneTexture, rendering::Renderer& renderer,
+                            float deltaSeconds) {
     if (!ImGui::Begin("Scene", &showScene_)) {
         sceneNavigationActive_ = false;
+        gizmoDragging_ = false;
         ImGui::End();
         return;
     }
 
     ImGui::TextDisabled("Right-drag: look/fly  |  WASD: move  |  Q/E: up/down  |  MMB: pan  |  Wheel: zoom  |  Shift: faster");
+    ImGui::TextDisabled("Transform:");
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Move [W]", gizmoMode_ == GizmoMode::Translate)) {
+        gizmoMode_ = GizmoMode::Translate;
+        gizmoDragging_ = false;
+        gizmoActiveAxis_ = -1;
+    }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Rotate [E]", gizmoMode_ == GizmoMode::Rotate)) {
+        gizmoMode_ = GizmoMode::Rotate;
+        gizmoDragging_ = false;
+        gizmoActiveAxis_ = -1;
+    }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Scale [R]", gizmoMode_ == GizmoMode::Scale)) {
+        gizmoMode_ = GizmoMode::Scale;
+        gizmoDragging_ = false;
+        gizmoActiveAxis_ = -1;
+    }
+    ImGui::SameLine();
+    if (selectedEntity_ != 0U && world.IsAlive(selectedEntity_)) {
+        ImGui::TextDisabled("Entity %u", selectedEntity_);
+    } else {
+        ImGui::TextDisabled("Select an object in Hierarchy");
+    }
     ImGui::Separator();
     const ImVec2 available = ImGui::GetContentRegionAvail();
     const ImVec2 framebufferScale = ImGui::GetIO().DisplayFramebufferScale;
@@ -363,6 +427,8 @@ void EditorLayer::DrawScene(unsigned int sceneTexture, rendering::Renderer& rend
 
     if (sceneTexture == 0U || available.x <= 1.0F || available.y <= 1.0F) {
         sceneNavigationActive_ = false;
+        gizmoDragging_ = false;
+        gizmoActiveAxis_ = -1;
         ImGui::TextDisabled("Waiting for the scene renderer...");
         ImGui::End();
         return;
@@ -384,12 +450,27 @@ void EditorLayer::DrawScene(unsigned int sceneTexture, rendering::Renderer& rend
 
     ImGuiIO& io = ImGui::GetIO();
     const bool viewportHovered = ImGui::IsItemHovered();
+    const ImVec2 imageMin = ImGui::GetItemRectMin();
     const bool rightMouseDown = ImGui::IsMouseDown(ImGuiMouseButton_Right);
     if (viewportHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
         sceneNavigationActive_ = true;
     }
-    if (!rightMouseDown || glfwGetWindowAttrib(window_, GLFW_FOCUSED) == GLFW_FALSE) {
+    const bool windowFocused = glfwGetWindowAttrib(window_, GLFW_FOCUSED) != GLFW_FALSE;
+    if (!rightMouseDown || !windowFocused) {
         sceneNavigationActive_ = false;
+    }
+    if (!windowFocused) {
+        gizmoDragging_ = false;
+        gizmoActiveAxis_ = -1;
+    }
+    if (viewportHovered && !sceneNavigationActive_ && !gizmoDragging_ && !io.WantTextInput) {
+        if (ImGui::IsKeyPressed(ImGuiKey_W)) {
+            gizmoMode_ = GizmoMode::Translate;
+        } else if (ImGui::IsKeyPressed(ImGuiKey_E)) {
+            gizmoMode_ = GizmoMode::Rotate;
+        } else if (ImGui::IsKeyPressed(ImGuiKey_R)) {
+            gizmoMode_ = GizmoMode::Scale;
+        }
     }
 
     if (viewportHovered && io.MouseWheel != 0.0F) {
@@ -397,6 +478,171 @@ void EditorLayer::DrawScene(unsigned int sceneTexture, rendering::Renderer& rend
     }
     if (viewportHovered && ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
         renderer.MoveCamera(0.0F, -io.MouseDelta.x * 0.02F, io.MouseDelta.y * 0.02F, 0.1F);
+    }
+
+    auto* transform = selectedEntity_ != 0U && world.IsAlive(selectedEntity_)
+                          ? world.GetComponent<scene::TransformComponent>(selectedEntity_)
+                          : nullptr;
+    if (transform == nullptr) {
+        gizmoDragging_ = false;
+        gizmoActiveAxis_ = -1;
+    } else {
+        const glm::mat4 viewProjection = renderer.ViewProjection();
+        const glm::vec3 center = glm::vec3(transform->world[3]);
+        const glm::quat orientation = glm::normalize(transform->local.rotation);
+        const std::array<glm::vec3, 3> localAxes{glm::vec3{1.0F, 0.0F, 0.0F},
+                                                  glm::vec3{0.0F, 1.0F, 0.0F},
+                                                  glm::vec3{0.0F, 0.0F, 1.0F}};
+        constexpr std::array<ImU32, 3> axisColors{IM_COL32(242, 77, 77, 255), IM_COL32(93, 216, 120, 255),
+                                                   IM_COL32(90, 150, 255, 255)};
+        constexpr std::array<const char*, 3> axisLabels{"X", "Y", "Z"};
+        constexpr float handleLength = 82.0F;
+        ImVec2 screenCenter{};
+        const bool centerVisible = ProjectToScreen(viewProjection, center, imageMin, imageSize, screenCenter);
+        ImVec2 gizmoOrigin = screenCenter;
+        auto* drawList = ImGui::GetWindowDrawList();
+
+        const bool centerInsideImage = screenCenter.x >= imageMin.x && screenCenter.x <= imageMin.x + imageSize.x &&
+                                       screenCenter.y >= imageMin.y && screenCenter.y <= imageMin.y + imageSize.y;
+        if (centerVisible && (centerInsideImage || gizmoDragging_)) {
+            std::array<glm::vec2, 3> screenAxes{};
+            std::array<glm::vec3, 3> worldAxes{};
+            std::array<float, 3> worldPerPixel{};
+            std::array<bool, 3> axisVisible{};
+            std::array<float, 3> axisHitDistances{std::numeric_limits<float>::max(),
+                                                   std::numeric_limits<float>::max(),
+                                                   std::numeric_limits<float>::max()};
+
+            for (int axis = 0; axis < 3; ++axis) {
+                const auto index = static_cast<std::size_t>(axis);
+                worldAxes[index] = glm::normalize(orientation * localAxes[index]);
+                ImVec2 unitEndpoint{};
+                if (!ProjectToScreen(viewProjection, center + worldAxes[index], imageMin, imageSize, unitEndpoint)) {
+                    continue;
+                }
+                const glm::vec2 projectedUnit{unitEndpoint.x - gizmoOrigin.x, unitEndpoint.y - gizmoOrigin.y};
+                const float projectedLength = glm::length(projectedUnit);
+                if (gizmoMode_ != GizmoMode::Rotate && projectedLength < 0.001F) {
+                    continue;
+                }
+                if (projectedLength >= 0.001F) {
+                    screenAxes[index] = projectedUnit / projectedLength;
+                    worldPerPixel[index] = 1.0F / projectedLength;
+                    axisVisible[index] = true;
+                }
+                if (gizmoMode_ == GizmoMode::Rotate) {
+                    axisVisible[index] = true;
+                    constexpr int ringSegments = 64;
+                    constexpr float ringRadius = 0.9F;
+                    const int firstPlaneAxis = (axis + 1) % 3;
+                    const int secondPlaneAxis = (axis + 2) % 3;
+                    const glm::vec3 firstBasis = orientation * localAxes[static_cast<std::size_t>(firstPlaneAxis)];
+                    const glm::vec3 secondBasis = orientation * localAxes[static_cast<std::size_t>(secondPlaneAxis)];
+                    ImVec2 previous{};
+                    bool previousValid = false;
+                    for (int segment = 0; segment <= ringSegments; ++segment) {
+                        const float angle = 6.28318530718F * static_cast<float>(segment) /
+                                            static_cast<float>(ringSegments);
+                        const glm::vec3 ringPoint = center + ringRadius *
+                            (firstBasis * std::cos(angle) + secondBasis * std::sin(angle));
+                        ImVec2 current{};
+                        const bool currentValid = ProjectToScreen(viewProjection, ringPoint, imageMin, imageSize, current);
+                        if (currentValid && previousValid) {
+                            const float distance = DistanceToSegment(io.MousePos, previous, current);
+                            axisHitDistances[index] = std::min(axisHitDistances[index], distance);
+                            drawList->AddLine(previous, current, axisColors[index],
+                                              gizmoDragging_ && gizmoActiveAxis_ == axis ? 3.5F : 2.0F);
+                        }
+                        previous = current;
+                        previousValid = currentValid;
+                    }
+                } else {
+                    const ImVec2 endpoint(gizmoOrigin.x + screenAxes[index].x * handleLength,
+                                          gizmoOrigin.y + screenAxes[index].y * handleLength);
+                    float lineFraction = 0.0F;
+                    const float lineDistance = DistanceToSegment(io.MousePos, gizmoOrigin, endpoint, &lineFraction);
+                    axisHitDistances[index] = lineDistance;
+                    if (lineFraction < 0.12F) {
+                        axisHitDistances[index] = std::numeric_limits<float>::max();
+                    }
+                    const bool active = gizmoDragging_ && gizmoActiveAxis_ == axis;
+                    drawList->AddLine(gizmoOrigin, endpoint, axisColors[index], active ? 4.0F : 3.0F);
+                    if (gizmoMode_ == GizmoMode::Translate) {
+                        const glm::vec2 direction = screenAxes[index];
+                        const glm::vec2 perpendicular{-direction.y, direction.x};
+                        const ImVec2 tip = endpoint;
+                        const ImVec2 base(tip.x - direction.x * 11.0F, tip.y - direction.y * 11.0F);
+                        drawList->AddTriangleFilled(
+                            tip, ImVec2(base.x + perpendicular.x * 5.0F, base.y + perpendicular.y * 5.0F),
+                            ImVec2(base.x - perpendicular.x * 5.0F, base.y - perpendicular.y * 5.0F), axisColors[index]);
+                    } else {
+                        drawList->AddRectFilled(ImVec2(endpoint.x - 5.0F, endpoint.y - 5.0F),
+                                                ImVec2(endpoint.x + 5.0F, endpoint.y + 5.0F), axisColors[index]);
+                    }
+                    drawList->AddText(ImVec2(endpoint.x + 5.0F, endpoint.y + 3.0F), axisColors[index], axisLabels[index]);
+                }
+            }
+
+            drawList->AddCircleFilled(gizmoOrigin, 5.0F, IM_COL32(240, 240, 245, 255));
+            int hoveredAxis = -1;
+            float nearestDistance = 10.0F;
+            for (int axis = 0; axis < 3; ++axis) {
+                const auto index = static_cast<std::size_t>(axis);
+                if (axisVisible[index] && axisHitDistances[index] < nearestDistance) {
+                    nearestDistance = axisHitDistances[index];
+                    hoveredAxis = axis;
+                }
+            }
+            if (viewportHovered && hoveredAxis >= 0 && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+                !sceneNavigationActive_) {
+                const auto index = static_cast<std::size_t>(hoveredAxis);
+                gizmoDragging_ = true;
+                gizmoActiveAxis_ = hoveredAxis;
+                gizmoDragStartMouse_ = glm::vec2(io.MousePos.x, io.MousePos.y);
+                gizmoDragScreenAxis_ = screenAxes[index];
+                gizmoDragAxisLocal_ = localAxes[index];
+                gizmoDragAxisWorld_ = worldAxes[index];
+                gizmoDragStartTranslation_ = transform->local.translation;
+                gizmoDragStartRotation_ = transform->local.rotation;
+                gizmoDragStartScale_ = transform->local.scale;
+                gizmoWorldPerPixel_ = worldPerPixel[index];
+                gizmoRotationStartAngle_ = std::atan2(io.MousePos.y - gizmoOrigin.y, io.MousePos.x - gizmoOrigin.x);
+            }
+
+            if (gizmoDragging_ && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                const glm::vec2 mouse(io.MousePos.x, io.MousePos.y);
+                if (gizmoMode_ == GizmoMode::Rotate) {
+                    const float currentAngle = std::atan2(io.MousePos.y - gizmoOrigin.y,
+                                                          io.MousePos.x - gizmoOrigin.x);
+                    const float angleDelta = std::remainder(currentAngle - gizmoRotationStartAngle_,
+                                                             6.28318530718F);
+                    transform->local.rotation = glm::normalize(
+                        gizmoDragStartRotation_ * glm::angleAxis(angleDelta, gizmoDragAxisLocal_));
+                } else {
+                    const glm::vec2 mouseDelta = mouse - gizmoDragStartMouse_;
+                    const float axisDelta = glm::dot(mouseDelta, gizmoDragScreenAxis_) * gizmoWorldPerPixel_;
+                    if (gizmoMode_ == GizmoMode::Translate) {
+                        transform->local.translation = gizmoDragStartTranslation_ + gizmoDragAxisWorld_ * axisDelta;
+                    } else {
+                        transform->local.scale[gizmoActiveAxis_] =
+                            std::max(0.01F, gizmoDragStartScale_[gizmoActiveAxis_] + axisDelta);
+                    }
+                }
+                transform->dirty = true;
+            } else if (gizmoDragging_) {
+                gizmoDragging_ = false;
+                gizmoActiveAxis_ = -1;
+            }
+
+            if (hoveredAxis >= 0 && !gizmoDragging_ && viewportHovered) {
+                ImGui::SetMouseCursor(gizmoMode_ == GizmoMode::Rotate ? ImGuiMouseCursor_Hand
+                                                                       : ImGuiMouseCursor_ResizeAll);
+            }
+        }
+    }
+    if (gizmoDragging_ && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+        gizmoDragging_ = false;
+        gizmoActiveAxis_ = -1;
     }
 
     if (sceneNavigationActive_) {

@@ -4,6 +4,8 @@
 #include "AxiomEngine/rendering/Components.h"
 
 #include <filesystem>
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <string>
 #include <utility>
 #include <vector>
@@ -25,6 +27,9 @@ struct EditorFrameInfo {
 };
 
 class EditorLayer {
+  private:
+    enum class GizmoMode : unsigned char { Translate, Rotate, Scale };
+
   public:
     bool Initialize(GLFWwindow* window, std::filesystem::path assetRoot);
     void Shutdown();
@@ -43,7 +48,7 @@ class EditorLayer {
     void BuildDefaultLayout(unsigned int dockspaceId, float width, float height);
     void DrawHierarchy(ecs::ECSWorld& world);
     void DrawInspector(ecs::ECSWorld& world);
-    void DrawScene(unsigned int sceneTexture, rendering::Renderer& renderer, float deltaSeconds);
+    void DrawScene(ecs::ECSWorld& world, unsigned int sceneTexture, rendering::Renderer& renderer, float deltaSeconds);
     void DrawProjectBrowser();
     void DrawAssetDirectory(const std::filesystem::path& directory);
     void DrawConsole();
@@ -71,6 +76,18 @@ class EditorLayer {
     bool showConsole_{false};
     bool deleteSelected_{false};
     bool sceneNavigationActive_{false};
+    GizmoMode gizmoMode_{GizmoMode::Translate};
+    bool gizmoDragging_{false};
+    int gizmoActiveAxis_{-1};
+    glm::vec2 gizmoDragStartMouse_{0.0F};
+    glm::vec2 gizmoDragScreenAxis_{0.0F};
+    glm::vec3 gizmoDragAxisLocal_{0.0F};
+    glm::vec3 gizmoDragAxisWorld_{0.0F};
+    glm::vec3 gizmoDragStartTranslation_{0.0F};
+    glm::quat gizmoDragStartRotation_{1.0F, 0.0F, 0.0F, 0.0F};
+    glm::vec3 gizmoDragStartScale_{1.0F};
+    float gizmoWorldPerPixel_{0.0F};
+    float gizmoRotationStartAngle_{0.0F};
     bool initialized_{false};
 };
 

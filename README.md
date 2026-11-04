@@ -71,9 +71,11 @@ Run:
 
 The runtime opens a docked editor workspace. Use **GameObject → Create Shape**
 or the **+ Add Shape** button in Hierarchy to add a cube, sphere, circle, pyramid,
-cone, cylinder, or bean. Select an object to change its shape and edit its
-position, rotation, scale, and rigid body values in Inspector. Delete the
-selected object from Inspector.
+cone, cylinder, or bean. Select an object in Hierarchy to change its shape and
+edit its position, rotation, scale, and rigid body values in Inspector. In the
+Scene panel, choose Move, Rotate, or Scale (also **W/E/R**) and drag a colored
+axis or rotation ring to manipulate that object directly. Delete it from
+Inspector.
 
 Scene shows the live render. Project browses the files in `Sandbox`, and selecting
 a file shows its path and size. **File → Save Scene** or **Ctrl+S** writes the
@@ -81,9 +83,10 @@ current scene to `Sandbox/scenes/default.axscene`. The panel arrangement is save
 in the ignored `AxiomEditor.ini` file at the repository root. Reopen hidden panels
 from the **Window** menu.
 
-The Sandbox supports free-fly camera iteration: press **F1** to capture or release
-the cursor, use **W/A/S/D** to move horizontally, **Q/E** to move down or up,
-and move the mouse to look while the cursor is captured.
+In Scene, hold the **right mouse button** and use **W/A/S/D** to fly while dragging
+to look around. Hold **Q/E** for vertical movement, use **middle-drag** to pan,
+scroll to zoom, and hold **Shift** to move faster. Press **F1** to capture the
+cursor for the separate free-fly camera mode.
 
 ## Desktop installation (Linux)
 
@@ -147,7 +150,7 @@ If you reconfigure often, `--fresh` avoids stale cache variables from prior buil
 - Add worker-thread backend for `IJobSystem` and parallelize key phases.
 - Evolve frame-graph resource lifetime/transient planning.
 - Build incremental, dependency-aware asset import recipes.
-- Add scene transform gizmos and a play-in-editor loop to the initial hierarchy/inspector workspace.
+- Add a play-in-editor loop.
 - Add nested prefab support with override workflows.
 
 ### Long term (production readiness)
