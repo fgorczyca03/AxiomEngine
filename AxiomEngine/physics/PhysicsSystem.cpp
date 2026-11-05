@@ -92,9 +92,10 @@ void PhysicsSystem::Step(ecs::ECSWorld& world, float dt) {
             bodies_.push_back({entity, &transform, &rb});
         });
 
-    std::sort(bodies_.begin(), bodies_.end(), [](const BodyRef& lhs, const BodyRef& rhs) {
-        return lhs.entity < rhs.entity;
-    });
+    const auto byEntity = [](const BodyRef& lhs, const BodyRef& rhs) { return lhs.entity < rhs.entity; };
+    if (!std::is_sorted(bodies_.begin(), bodies_.end(), byEntity)) {
+        std::sort(bodies_.begin(), bodies_.end(), byEntity);
+    }
 
     for (BodyRef& body : bodies_) {
         const float inverseMass = InverseMass(*body.rigidBody);
