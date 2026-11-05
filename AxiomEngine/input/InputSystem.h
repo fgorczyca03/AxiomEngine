@@ -1,5 +1,7 @@
 #pragma once
 
+#include <bitset>
+#include <cstddef>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -39,10 +41,25 @@ struct InputBindingDescription {
 };
 
 struct InputSnapshot {
-    std::unordered_map<int, bool> keyState{};
+    static constexpr std::size_t KeyCodeCount = 512;
+
+    std::bitset<KeyCodeCount> keyState{};
     std::unordered_map<int, float> mouseAxisState{};
     std::unordered_map<int, bool> gamepadButtonState{};
     std::unordered_map<int, float> gamepadAxisState{};
+
+    void SetKeyState(int keyCode, bool pressed) {
+        if (keyCode >= 0 && static_cast<std::size_t>(keyCode) < KeyCodeCount) {
+            keyState.set(static_cast<std::size_t>(keyCode), pressed);
+        }
+    }
+
+    [[nodiscard]] bool IsKeyPressed(int keyCode) const {
+        return keyCode >= 0 && static_cast<std::size_t>(keyCode) < KeyCodeCount &&
+               keyState.test(static_cast<std::size_t>(keyCode));
+    }
+
+    void ClearKeyState() { keyState.reset(); }
 };
 
 class InputSystem {

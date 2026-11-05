@@ -11,6 +11,12 @@
 
 namespace axiom::scripting {
 
+namespace {
+
+constexpr float ScriptReloadCheckIntervalSeconds = 0.25F;
+
+} // namespace
+
 ScriptSystem::ScriptSystem() {
     lua_.open_libraries(sol::lib::base, sol::lib::math);
 }
@@ -68,6 +74,7 @@ bool ScriptSystem::LoadScript(ecs::Entity entity, const std::string& scriptPath)
     ScriptInstance instance{};
     instance.scriptPath = scriptPath;
     instance.lastWriteTime = writeTime;
+    instance.timeUntilReloadCheck = ScriptReloadCheckIntervalSeconds;
     instance.environment = std::move(environment);
     instance.update = instance.environment.get<sol::protected_function>("Update");
     instances_.insert_or_assign(entity, std::move(instance));
@@ -98,24 +105,28 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
                 instance->second.instanceId = script.instanceId;
                 script.lastError.clear();
             } else {
-                std::error_code errorCode;
-                const auto writeTime = std::filesystem::last_write_time(ResolveScriptPath(script.scriptPath), errorCode);
-                if (errorCode) {
-                    RecordError("load", "Could not read script for Entity " + std::to_string(entity) + ": " +
-                                             script.scriptPath);
-                    script.enabled = false;
-                    script.lastError = errors_.back().message;
-                    return;
-                }
-                if (writeTime != instance->second.lastWriteTime) {
-                    if (!LoadScript(entity, script.scriptPath)) {
+                instance->second.timeUntilReloadCheck -= dt;
+                if (instance->second.timeUntilReloadCheck <= 0.0F) {
+                    instance->second.timeUntilReloadCheck = ScriptReloadCheckIntervalSeconds;
+                    std::error_code errorCode;
+                    const auto writeTime = std::filesystem::last_write_time(ResolveScriptPath(script.scriptPath), errorCode);
+                    if (errorCode) {
+                        RecordError("load", "Could not read script for Entity " + std::to_string(entity) + ": " +
+                                                 script.scriptPath);
                         script.enabled = false;
-                        script.lastError = errors_.empty() ? "Could not reload the script." : errors_.back().message;
+                        script.lastError = errors_.back().message;
                         return;
                     }
-                    instance = instances_.find(entity);
-                    instance->second.instanceId = script.instanceId;
-                    script.lastError.clear();
+                    if (writeTime != instance->second.lastWriteTime) {
+                        if (!LoadScript(entity, script.scriptPath)) {
+                            script.enabled = false;
+                            script.lastError = errors_.empty() ? "Could not reload the script." : errors_.back().message;
+                            return;
+                        }
+                        instance = instances_.find(entity);
+                        instance->second.instanceId = script.instanceId;
+                        script.lastError.clear();
+                    }
                 }
             }
 
