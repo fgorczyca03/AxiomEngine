@@ -1,57 +1,77 @@
 #include "AxiomEngine/scene/SceneGraph.h"
 
-#include <functional>
-#include <unordered_map>
-#include <vector>
-
 namespace axiom::scene {
 
 void SceneGraph::UpdateTransforms() {
-    std::vector<ecs::Entity> entities{};
+    entities_.clear();
     world_.ForEach<TransformComponent, SceneNodeComponent>(
-        [&](ecs::Entity entity, TransformComponent&, const SceneNodeComponent&) { entities.push_back(entity); });
+        [&](ecs::Entity entity, TransformComponent&, const SceneNodeComponent&) { entities_.push_back(entity); });
 
-    enum class VisitState : unsigned char { Unvisited, Visiting, Resolved };
-    std::unordered_map<ecs::Entity, VisitState> visitStates{};
-    visitStates.reserve(entities.size());
+    for (auto& [_, visit] : visitStates_) {
+        visit.state = VisitState::Unvisited;
+        visit.worldChanged = false;
+    }
 
-    std::function<bool(ecs::Entity)> resolve = [&](ecs::Entity entity) {
-        auto* transform = world_.GetComponent<TransformComponent>(entity);
-        if (transform == nullptr) {
-            return false;
+    for (const ecs::Entity entity : entities_) {
+        (void)ResolveTransform(entity);
+    }
+}
+
+SceneGraph::ResolveResult SceneGraph::ResolveTransform(ecs::Entity entity) {
+    auto* transform = world_.GetComponent<TransformComponent>(entity);
+    if (transform == nullptr) {
+        return {};
+    }
+
+    const auto existing = visitStates_.find(entity);
+    if (existing != visitStates_.end()) {
+        if (existing->second.state == VisitState::Resolved) {
+            return {true, existing->second.worldChanged};
         }
-
-        VisitState& state = visitStates[entity];
-        if (state == VisitState::Resolved) {
-            return true;
+        if (existing->second.state == VisitState::Visiting) {
+            return {};
         }
-        if (state == VisitState::Visiting) {
-            return false;
-        }
-        state = VisitState::Visiting;
+    }
+    visitStates_[entity].state = VisitState::Visiting;
 
-        bool hasParentTransform = false;
-        const auto* node = world_.GetComponent<SceneNodeComponent>(entity);
-        if (node != nullptr && node->parent != 0 && node->parent != entity && world_.IsAlive(node->parent)) {
-            if (resolve(node->parent)) {
-                if (const auto* parent = world_.GetComponent<TransformComponent>(node->parent)) {
-                    transform->world = parent->world * transform->local.LocalMatrix();
+    bool hasParentTransform = false;
+    bool parentChanged = false;
+    bool forceLocalUpdate = transform->dirty;
+    const auto* node = world_.GetComponent<SceneNodeComponent>(entity);
+    if (node != nullptr && node->parent != 0U && node->parent != entity) {
+        if (!world_.IsAlive(node->parent)) {
+            forceLocalUpdate = true;
+        } else {
+            const ResolveResult parentResult = ResolveTransform(node->parent);
+            if (parentResult.resolved) {
+                if (world_.GetComponent<TransformComponent>(node->parent) != nullptr) {
                     hasParentTransform = true;
+                    parentChanged = parentResult.worldChanged;
                 }
+            } else {
+                // A missing or cyclic parent falls back to local space, matching the
+                // previous resolver behavior while still avoiding work on normal roots.
+                forceLocalUpdate = true;
             }
         }
-        if (!hasParentTransform) {
-            transform->world = transform->local.LocalMatrix();
-        }
-
-        transform->dirty = false;
-        state = VisitState::Resolved;
-        return true;
-    };
-
-    for (const ecs::Entity entity : entities) {
-        (void)resolve(entity);
     }
+
+    const bool worldChanged = forceLocalUpdate || parentChanged;
+    if (worldChanged) {
+        const glm::mat4 localMatrix = transform->local.LocalMatrix();
+        if (hasParentTransform) {
+            const auto* parent = world_.GetComponent<TransformComponent>(node->parent);
+            transform->world = parent->world * localMatrix;
+        } else {
+            transform->world = localMatrix;
+        }
+    }
+
+    transform->dirty = false;
+    VisitInfo& visit = visitStates_[entity];
+    visit.state = VisitState::Resolved;
+    visit.worldChanged = worldChanged;
+    return {true, worldChanged};
 }
 
 } // namespace axiom::scene
