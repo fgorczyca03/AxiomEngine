@@ -6,7 +6,6 @@
 
 #include <cmath>
 #include <system_error>
-#include <unordered_set>
 #include <utility>
 
 namespace axiom::scripting {
@@ -82,7 +81,10 @@ bool ScriptSystem::LoadScript(ecs::Entity entity, const std::string& scriptPath)
 }
 
 void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
-    std::unordered_set<ecs::Entity> activeInstances{};
+    for (auto& [_, instance] : instances_) {
+        instance.activeThisUpdate = false;
+    }
+
     world.ForEach<scene::TransformComponent, scene::ScriptComponent>(
         [&](ecs::Entity entity, scene::TransformComponent& transform, scene::ScriptComponent& script) {
             if (!script.enabled || script.scriptPath.empty()) {
@@ -92,8 +94,10 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
             if (script.instanceId == 0) {
                 script.instanceId = nextInstanceId_++;
             }
-            activeInstances.insert(entity);
             auto instance = instances_.find(entity);
+            if (instance != instances_.end()) {
+                instance->second.activeThisUpdate = true;
+            }
             if (instance == instances_.end() || instance->second.scriptPath != script.scriptPath ||
                 instance->second.instanceId != script.instanceId) {
                 if (!LoadScript(entity, script.scriptPath)) {
@@ -103,6 +107,7 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
                 }
                 instance = instances_.find(entity);
                 instance->second.instanceId = script.instanceId;
+                instance->second.activeThisUpdate = true;
                 script.lastError.clear();
             } else {
                 instance->second.timeUntilReloadCheck -= dt;
@@ -125,6 +130,7 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
                         }
                         instance = instances_.find(entity);
                         instance->second.instanceId = script.instanceId;
+                        instance->second.activeThisUpdate = true;
                         script.lastError.clear();
                     }
                 }
@@ -181,7 +187,7 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
     });
 
     for (auto it = instances_.begin(); it != instances_.end();) {
-        if (!activeInstances.contains(it->first)) {
+        if (!it->second.activeThisUpdate) {
             it = instances_.erase(it);
         } else {
             ++it;

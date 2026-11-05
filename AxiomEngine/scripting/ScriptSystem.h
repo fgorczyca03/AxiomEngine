@@ -33,6 +33,7 @@ class ScriptSystem {
         std::uint64_t instanceId{0};
         std::filesystem::file_time_type lastWriteTime{};
         float timeUntilReloadCheck{0.0F};
+        bool activeThisUpdate{false};
         sol::environment environment{};
         sol::protected_function update{};
     };
