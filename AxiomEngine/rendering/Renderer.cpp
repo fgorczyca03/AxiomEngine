@@ -84,9 +84,11 @@ bool Renderer::Initialize(int width, int height, const char* title) {
         },
         [this](RenderContext& context) {
             context.shader.Bind();
+            const glm::mat4 viewProjection = context.camera.ViewProjection();
             context.shader.SetVec3("uLightPos", {2.0F, 4.0F, 2.0F});
             context.shader.SetVec3("uLightColor", {1.0F, 0.95F, 0.85F});
             context.shader.SetVec3("uViewPos", context.camera.Position());
+            context.shader.SetMat4("uViewProjection", viewProjection);
             context.shader.SetFloat("uAmbientStrength", 0.18F);
             context.shader.SetFloat("uShadowStrength", 0.35F);
 
@@ -101,7 +103,6 @@ bool Renderer::Initialize(int width, int height, const char* title) {
                 [&](ecs::Entity, const scene::TransformComponent& transform, const MeshComponent& mesh) {
                     const glm::vec3 baseColor = materialPalette[mesh.materialHandle % materialPalette.size()];
                     context.shader.SetMat4("uModel", transform.world);
-                    context.shader.SetMat4("uViewProjection", context.camera.ViewProjection());
                     context.shader.SetVec3("uBaseColor", baseColor);
                     context.shader.SetFloat("uRoughness", mesh.materialHandle == 0U ? 0.65F : 0.35F);
                     std::size_t primitiveIndex = static_cast<std::size_t>(mesh.primitive);

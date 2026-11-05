@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 
 #include <string>
+#include <unordered_map>
 
 namespace axiom::rendering {
 
@@ -18,7 +19,10 @@ class Shader {
     void SetFloat(const std::string& name, float value) const;
 
   private:
+    [[nodiscard]] int UniformLocation(const std::string& name) const;
+
     unsigned int program_{0};
+    mutable std::unordered_map<std::string, int> uniformLocations_{};
 };
 
 } // namespace axiom::rendering
