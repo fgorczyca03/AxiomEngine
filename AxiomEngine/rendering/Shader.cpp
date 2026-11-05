@@ -114,23 +114,35 @@ bool Shader::LoadFromFiles(const std::string& vertexPath, const std::string& fra
         glDeleteProgram(program_);
     }
     program_ = program;
+    uniformLocations_.clear();
     return true;
 }
 
 void Shader::Bind() const { glUseProgram(program_); }
 
+int Shader::UniformLocation(const std::string& name) const {
+    const auto cached = uniformLocations_.find(name);
+    if (cached != uniformLocations_.end()) {
+        return cached->second;
+    }
+
+    const int location = glGetUniformLocation(program_, name.c_str());
+    uniformLocations_.emplace(name, location);
+    return location;
+}
+
 void Shader::SetMat4(const std::string& name, const glm::mat4& value) const {
-    const auto loc = glGetUniformLocation(program_, name.c_str());
+    const int loc = UniformLocation(name);
     glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(value));
 }
 
 void Shader::SetVec3(const std::string& name, const glm::vec3& value) const {
-    const auto loc = glGetUniformLocation(program_, name.c_str());
+    const int loc = UniformLocation(name);
     glUniform3fv(loc, 1, glm::value_ptr(value));
 }
 
 void Shader::SetFloat(const std::string& name, float value) const {
-    const auto loc = glGetUniformLocation(program_, name.c_str());
+    const int loc = UniformLocation(name);
     glUniform1f(loc, value);
 }
 
