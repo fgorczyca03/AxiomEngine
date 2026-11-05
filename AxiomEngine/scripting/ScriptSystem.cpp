@@ -14,6 +14,14 @@ namespace {
 
 constexpr float ScriptReloadCheckIntervalSeconds = 0.25F;
 
+bool SameVector(const glm::vec3& left, const glm::vec3& right) {
+    return left.x == right.x && left.y == right.y && left.z == right.z;
+}
+
+bool SameRotation(const glm::quat& left, const glm::quat& right) {
+    return left.w == right.w && left.x == right.x && left.y == right.y && left.z == right.z;
+}
+
 } // namespace
 
 ScriptSystem::ScriptSystem() {
@@ -136,6 +144,9 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
                 }
             }
 
+            const glm::vec3 originalTranslation = transform.local.translation;
+            const glm::quat originalRotation = transform.local.rotation;
+            const glm::vec3 originalScale = transform.local.scale;
             auto table = lua_.create_table();
             table["x"] = transform.local.translation.x;
             table["y"] = transform.local.translation.y;
@@ -182,7 +193,11 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
                 readNumber("scaleY", transform.local.scale.y),
                 readNumber("scaleZ", transform.local.scale.z),
             };
-            transform.dirty = true;
+            if (!SameVector(transform.local.translation, originalTranslation) ||
+                !SameRotation(transform.local.rotation, originalRotation) ||
+                !SameVector(transform.local.scale, originalScale)) {
+                transform.dirty = true;
+            }
             script.lastError.clear();
     });
 
