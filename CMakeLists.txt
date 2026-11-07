@@ -178,6 +178,7 @@ add_library(AxiomEngine STATIC
   AxiomEngine/assets/AssetImporter.cpp
   AxiomEngine/assets/AssetRegistry.cpp
   AxiomEngine/scripting/ScriptSystem.cpp
+  AxiomEngine/input/InputReplay.cpp
   AxiomEngine/input/InputSystem.cpp
 )
 

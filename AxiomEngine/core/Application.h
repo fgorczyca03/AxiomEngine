@@ -5,6 +5,7 @@
 #include "AxiomEngine/assets/AssetRegistry.h"
 #include "AxiomEngine/ecs/ECSWorld.h"
 #include "AxiomEngine/editor/EditorLayer.h"
+#include "AxiomEngine/input/InputReplay.h"
 #include "AxiomEngine/input/InputSystem.h"
 #include "AxiomEngine/physics/PhysicsSystem.h"
 #include "AxiomEngine/rendering/Renderer.h"
@@ -28,6 +29,7 @@ class Application {
     rendering::Renderer renderer_{};
     physics::PhysicsSystem physics_{};
     input::InputSystem input_{};
+    input::InputReplay inputReplay_{};
     scripting::ScriptSystem scripting_{};
     scene::SceneGraph sceneGraph_;
     assets::AssetRegistry assetRegistry_{};
