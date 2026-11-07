@@ -109,6 +109,12 @@ to look around. Hold **Q/E** for vertical movement, use **middle-drag** to pan,
 scroll to zoom, and hold **Shift** to move faster. Press **F1** to capture the
 cursor for the separate free-fly camera mode.
 
+Open **Window → Debug Overlay** to see current and rolling frame times, mapped
+input actions with their bindings and active values, and scene validation warnings
+from the most recent load. The overlay can record or play a fixed-step input
+replay; recordings are saved to `Sandbox/replays/latest.axreplay` and a new
+recording replaces that file.
+
 The default scene attaches `Sandbox/scripts/rotate.lua` to its cube as a small
 example. Remove or disable it in Inspector if you want a stationary object.
 
@@ -165,9 +171,7 @@ If you reconfigure often, `--fresh` avoids stale cache variables from prior buil
 ### Near term (next 1-2 milestones)
 
 - Build the first Axiom Drift vertical-slice room using socket/door puzzle rules.
-- Add a lightweight debug overlay for action maps, frame timings, and scene validation warnings.
 - Add authored material files and hot-reload support for shader/material iteration.
-- Add deterministic replay capture for fixed-step input streams.
 
 ### Mid term (engine maturity)
 

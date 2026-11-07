@@ -13,6 +13,12 @@ struct InputAction {
     float value{0.0F};
 };
 
+// A named snapshot lets replay files stay independent of unordered_map iteration order.
+struct NamedInputAction {
+    std::string name{};
+    InputAction state{};
+};
+
 enum class InputBindingType {
     Key,
     Axis,
@@ -69,6 +75,9 @@ class InputSystem {
     [[nodiscard]] float Value(const std::string& actionName) const;
     [[nodiscard]] std::vector<std::string> ActionNames() const;
     [[nodiscard]] std::vector<InputBindingDescription> DescribeBindings(const std::string& actionName) const;
+    // CopyActionStates writes a name-sorted snapshot; ApplyActionStates restores one for playback.
+    void CopyActionStates(std::vector<NamedInputAction>& destination) const;
+    void ApplyActionStates(const std::vector<NamedInputAction>& states);
 
   private:
     struct ActionMapEntry {
