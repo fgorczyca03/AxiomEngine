@@ -6,10 +6,23 @@
 
 #include <cmath>
 #include <system_error>
-#include <unordered_set>
 #include <utility>
 
 namespace axiom::scripting {
+
+namespace {
+
+constexpr float ScriptReloadCheckIntervalSeconds = 0.25F;
+
+bool SameVector(const glm::vec3& left, const glm::vec3& right) {
+    return left.x == right.x && left.y == right.y && left.z == right.z;
+}
+
+bool SameRotation(const glm::quat& left, const glm::quat& right) {
+    return left.w == right.w && left.x == right.x && left.y == right.y && left.z == right.z;
+}
+
+} // namespace
 
 ScriptSystem::ScriptSystem() {
     lua_.open_libraries(sol::lib::base, sol::lib::math);
@@ -70,6 +83,7 @@ bool ScriptSystem::LoadScript(ecs::Entity entity, const std::string& scriptPath)
     ScriptInstance instance{};
     instance.scriptPath = scriptPath;
     instance.lastWriteTime = writeTime;
+    instance.timeUntilReloadCheck = ScriptReloadCheckIntervalSeconds;
     instance.environment = std::move(environment);
     instance.update = instance.environment.get<sol::protected_function>("Update");
     instances_.insert_or_assign(entity, std::move(instance));
@@ -77,7 +91,10 @@ bool ScriptSystem::LoadScript(ecs::Entity entity, const std::string& scriptPath)
 }
 
 void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
-    std::unordered_set<ecs::Entity> activeInstances{};
+    for (auto& [_, instance] : instances_) {
+        instance.activeThisUpdate = false;
+    }
+
     world.ForEach<scene::TransformComponent, scene::ScriptComponent>(
         [&](ecs::Entity entity, scene::TransformComponent& transform, scene::ScriptComponent& script) {
             if (!script.enabled || script.scriptPath.empty()) {
@@ -87,8 +104,10 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
             if (script.instanceId == 0) {
                 script.instanceId = nextInstanceId_++;
             }
-            activeInstances.insert(entity);
             auto instance = instances_.find(entity);
+            if (instance != instances_.end()) {
+                instance->second.activeThisUpdate = true;
+            }
             if (instance == instances_.end() || instance->second.scriptPath != script.scriptPath ||
                 instance->second.instanceId != script.instanceId) {
                 if (!LoadScript(entity, script.scriptPath)) {
@@ -98,6 +117,7 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
                 }
                 instance = instances_.find(entity);
                 instance->second.instanceId = script.instanceId;
+                instance->second.activeThisUpdate = true;
                 script.lastError.clear();
             } else {
                 std::error_code errorCode;
@@ -113,16 +133,27 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
                 if (writeTime != instance->second.lastWriteTime) {
                     if (!LoadScript(entity, script.scriptPath)) {
                         script.enabled = false;
-                        script.lastError = errors_.empty() ? "Could not reload the script." : errors_.back().message;
+                        script.lastError = errors_.back().message;
                         return;
                     }
-                    instance = instances_.find(entity);
-                    instance->second.instanceId = script.instanceId;
-                    script.lastError.clear();
+                    if (writeTime != instance->second.lastWriteTime) {
+                        if (!LoadScript(entity, script.scriptPath)) {
+                            script.enabled = false;
+                            script.lastError = errors_.empty() ? "Could not reload the script." : errors_.back().message;
+                            return;
+                        }
+                        instance = instances_.find(entity);
+                        instance->second.instanceId = script.instanceId;
+                        instance->second.activeThisUpdate = true;
+                        script.lastError.clear();
+                    }
                 }
             }
 
             // Lua edits this temporary table; C++ copies validated values back after Update returns.
+            const glm::vec3 originalTranslation = transform.local.translation;
+            const glm::quat originalRotation = transform.local.rotation;
+            const glm::vec3 originalScale = transform.local.scale;
             auto table = lua_.create_table();
             table["x"] = transform.local.translation.x;
             table["y"] = transform.local.translation.y;
@@ -170,13 +201,17 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
                 readNumber("scaleY", transform.local.scale.y),
                 readNumber("scaleZ", transform.local.scale.z),
             };
-            transform.dirty = true;
+            if (!SameVector(transform.local.translation, originalTranslation) ||
+                !SameRotation(transform.local.rotation, originalRotation) ||
+                !SameVector(transform.local.scale, originalScale)) {
+                transform.dirty = true;
+            }
             script.lastError.clear();
     });
 
     // Drop Lua environments after a script is detached, disabled, or its entity is destroyed.
     for (auto it = instances_.begin(); it != instances_.end();) {
-        if (!activeInstances.contains(it->first)) {
+        if (!it->second.activeThisUpdate) {
             it = instances_.erase(it);
         } else {
             ++it;

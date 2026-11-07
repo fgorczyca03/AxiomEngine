@@ -34,6 +34,9 @@ namespace axiom::editor {
 
 namespace {
 
+constexpr auto AssetDirectoryRefreshInterval = std::chrono::milliseconds(500);
+constexpr auto LuaScriptListRefreshInterval = std::chrono::milliseconds(500);
+
 bool ProjectToScreen(const glm::mat4& viewProjection, const glm::vec3& position, const ImVec2& imageMin,
                      const ImVec2& imageSize, ImVec2& screenPosition) {
     const glm::vec4 clip = viewProjection * glm::vec4(position, 1.0F);
@@ -522,7 +525,7 @@ void EditorLayer::DrawInspector(ecs::ECSWorld& world) {
     bool removeScript = false;
     if (script != nullptr && ImGui::CollapsingHeader("Script", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Checkbox("Enabled", &script->enabled);
-        const std::vector<std::string> scripts = AvailableLuaScripts();
+        const std::vector<std::string>& scripts = AvailableLuaScripts();
         const char* currentScript = script->scriptPath.empty() ? "Choose a Lua script..." : script->scriptPath.c_str();
         if (ImGui::BeginCombo("Source", currentScript)) {
             for (const std::string& path : scripts) {
@@ -869,7 +872,10 @@ void EditorLayer::DrawProjectBrowser() {
 
     std::error_code error;
     if (std::filesystem::is_directory(assetRoot_, error)) {
-        DrawAssetDirectory(assetRoot_);
+        std::string filter = assetFilter_.data();
+        std::transform(filter.begin(), filter.end(), filter.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        DrawAssetDirectory(assetRoot_, filter);
     } else {
         ImGui::TextDisabled("Project content folder is unavailable:");
         ImGui::TextWrapped("%s", assetRoot_.string().c_str());
@@ -932,23 +938,21 @@ void EditorLayer::DrawProjectBrowser() {
     ImGui::End();
 }
 
-void EditorLayer::DrawAssetDirectory(const std::filesystem::path& directory) {
-    std::error_code error;
-    std::vector<std::filesystem::directory_entry> entries{};
-    for (std::filesystem::directory_iterator it(directory, std::filesystem::directory_options::skip_permission_denied,
-                                                error),
-         end;
-         !error && it != end; it.increment(error)) {
-        entries.push_back(*it);
-    }
-    std::sort(entries.begin(), entries.end(), [](const auto& left, const auto& right) {
-        const bool leftDirectory = left.is_directory();
-        const bool rightDirectory = right.is_directory();
-        if (leftDirectory != rightDirectory) {
-            return leftDirectory;
-        }
-        return left.path().filename().string() < right.path().filename().string();
-    });
+void EditorLayer::DrawAssetDirectory(const std::filesystem::path& directory, const std::string& filter) {
+    const std::string cacheKey = directory.lexically_normal().generic_string();
+    CachedAssetDirectory& cache = assetDirectoryCache_[cacheKey];
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= cache.refreshAfter) {
+        cache.entries.clear();
+        std::error_code error;
+        for (std::filesystem::directory_iterator it(
+                 directory, std::filesystem::directory_options::skip_permission_denied, error),
+             end;
+             !error && it != end; it.increment(error)) {
+            std::error_code entryError;
+            if (it->is_symlink(entryError) || entryError) {
+                continue;
+            }
 
     std::string filter = assetFilter_.data();
     std::transform(filter.begin(), filter.end(), filter.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
@@ -958,40 +962,64 @@ void EditorLayer::DrawAssetDirectory(const std::filesystem::path& directory) {
         if (entry.is_symlink(entryError)) {
             // Do not let a project link send the browser outside the selected content root.
             continue;
+            CachedAssetEntry cached{};
+            cached.path = it->path();
+            cached.relativePath = cached.path.lexically_relative(assetRoot_).generic_string();
+            cached.filename = cached.path.filename().string();
+            cached.lowerFilename = cached.filename;
+            std::transform(cached.lowerFilename.begin(), cached.lowerFilename.end(), cached.lowerFilename.begin(),
+                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            cached.isDirectory = it->is_directory(entryError);
+            if (!entryError) {
+                cache.entries.push_back(std::move(cached));
+            }
         }
-        if (entry.is_directory(entryError)) {
-            const std::string label = "[+] " + entry.path().filename().string();
-            if (ImGui::TreeNodeEx(relative.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth, "%s", label.c_str())) {
-                DrawAssetDirectory(entry.path());
+        std::sort(cache.entries.begin(), cache.entries.end(), [](const auto& left, const auto& right) {
+            if (left.isDirectory != right.isDirectory) {
+                return left.isDirectory;
+            }
+            return left.filename < right.filename;
+        });
+        cache.refreshAfter = now + AssetDirectoryRefreshInterval;
+    }
+
+    for (const CachedAssetEntry& entry : cache.entries) {
+        if (entry.isDirectory) {
+            const std::string label = "[+] " + entry.filename;
+            if (ImGui::TreeNodeEx(entry.relativePath.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth, "%s", label.c_str())) {
+                DrawAssetDirectory(entry.path, filter);
                 ImGui::TreePop();
             }
             continue;
         }
 
-        std::string filename = entry.path().filename().string();
-        std::string lowerFilename = filename;
-        std::transform(lowerFilename.begin(), lowerFilename.end(), lowerFilename.begin(),
-                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        if (!filter.empty() && lowerFilename.find(filter) == std::string::npos && relative.find(filter) == std::string::npos) {
+        if (!filter.empty() && entry.lowerFilename.find(filter) == std::string::npos &&
+            entry.relativePath.find(filter) == std::string::npos) {
             continue;
         }
 
-        const std::string label = "[file] " + filename;
-        if (ImGui::Selectable(label.c_str(), selectedAsset_ == relative)) {
-            selectedAsset_ = relative;
+        const std::string label = "[file] " + entry.filename;
+        if (ImGui::Selectable(label.c_str(), selectedAsset_ == entry.relativePath)) {
+            selectedAsset_ = entry.relativePath;
         }
         if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("%s", entry.path().string().c_str());
+            ImGui::SetTooltip("%s", entry.path.string().c_str());
         }
     }
 }
 
-std::vector<std::string> EditorLayer::AvailableLuaScripts() const {
-    std::vector<std::string> scripts{};
+const std::vector<std::string>& EditorLayer::AvailableLuaScripts() const {
+    const auto now = std::chrono::steady_clock::now();
+    if (now < refreshScriptsAfter_) {
+        return availableLuaScripts_;
+    }
+
+    availableLuaScripts_.clear();
     const std::filesystem::path scriptsDirectory = assetRoot_ / "scripts";
     std::error_code error;
     if (!std::filesystem::is_directory(scriptsDirectory, error)) {
-        return scripts;
+        refreshScriptsAfter_ = now + LuaScriptListRefreshInterval;
+        return availableLuaScripts_;
     }
 
     std::filesystem::recursive_directory_iterator iterator(
@@ -1001,12 +1029,13 @@ std::vector<std::string> EditorLayer::AvailableLuaScripts() const {
         if (iterator->is_symlink(error)) {
             iterator.disable_recursion_pending();
         } else if (iterator->is_regular_file(error) && iterator->path().extension() == ".lua") {
-            scripts.push_back(iterator->path().lexically_relative(assetRoot_).generic_string());
+            availableLuaScripts_.push_back(iterator->path().lexically_relative(assetRoot_).generic_string());
         }
         iterator.increment(error);
     }
-    std::sort(scripts.begin(), scripts.end());
-    return scripts;
+    std::sort(availableLuaScripts_.begin(), availableLuaScripts_.end());
+    refreshScriptsAfter_ = now + LuaScriptListRefreshInterval;
+    return availableLuaScripts_;
 }
 
 void EditorLayer::CreateLuaScript() {
@@ -1051,6 +1080,8 @@ void EditorLayer::CreateLuaScript() {
         return;
     }
 
+    refreshScriptsAfter_ = {};
+    assetDirectoryCache_.clear();
     std::fill(newScriptName_.begin(), newScriptName_.end(), '\0');
     selectedAsset_ = scriptPath.lexically_relative(assetRoot_).generic_string();
     scriptEditorAsset_.clear();
@@ -1066,8 +1097,12 @@ void EditorLayer::DrawConsole() {
         consoleMessages_.clear();
     }
     ImGui::Separator();
-    for (const auto& message : consoleMessages_) {
-        ImGui::TextUnformatted(message.c_str());
+    ImGuiListClipper clipper{};
+    clipper.Begin(static_cast<int>(consoleMessages_.size()));
+    while (clipper.Step()) {
+        for (int index = clipper.DisplayStart; index < clipper.DisplayEnd; ++index) {
+            ImGui::TextUnformatted(consoleMessages_[static_cast<std::size_t>(index)].c_str());
+        }
     }
     ImGui::End();
 }

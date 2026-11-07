@@ -1,5 +1,7 @@
 #pragma once
 
+#include <bitset>
+#include <cstddef>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -51,6 +53,19 @@ struct InputSnapshot {
     std::unordered_map<int, float> mouseAxisState{};
     std::unordered_map<int, bool> gamepadButtonState{};
     std::unordered_map<int, float> gamepadAxisState{};
+
+    void SetKeyState(int keyCode, bool pressed) {
+        if (keyCode >= 0 && static_cast<std::size_t>(keyCode) < KeyCodeCount) {
+            keyState.set(static_cast<std::size_t>(keyCode), pressed);
+        }
+    }
+
+    [[nodiscard]] bool IsKeyPressed(int keyCode) const {
+        return keyCode >= 0 && static_cast<std::size_t>(keyCode) < KeyCodeCount &&
+               keyState.test(static_cast<std::size_t>(keyCode));
+    }
+
+    void ClearKeyState() { keyState.reset(); }
 };
 
 // Converts raw device snapshots into named actions shared by camera controls and game code.

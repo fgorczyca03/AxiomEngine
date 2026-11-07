@@ -132,16 +132,16 @@ int Application::Run() {
         input_.Update();
 
         input::InputSnapshot snapshot{};
-        snapshot.keyState = {{GLFW_KEY_A, renderer_.IsKeyPressed(GLFW_KEY_A)},
-                             {GLFW_KEY_D, renderer_.IsKeyPressed(GLFW_KEY_D)},
-                             {GLFW_KEY_W, renderer_.IsKeyPressed(GLFW_KEY_W)},
-                             {GLFW_KEY_S, renderer_.IsKeyPressed(GLFW_KEY_S)},
-                             {GLFW_KEY_Q, renderer_.IsKeyPressed(GLFW_KEY_Q)},
-                             {GLFW_KEY_E, renderer_.IsKeyPressed(GLFW_KEY_E)},
-                             {GLFW_KEY_F1, renderer_.IsKeyPressed(GLFW_KEY_F1)}};
+        snapshot.SetKeyState(GLFW_KEY_A, renderer_.IsKeyPressed(GLFW_KEY_A));
+        snapshot.SetKeyState(GLFW_KEY_D, renderer_.IsKeyPressed(GLFW_KEY_D));
+        snapshot.SetKeyState(GLFW_KEY_W, renderer_.IsKeyPressed(GLFW_KEY_W));
+        snapshot.SetKeyState(GLFW_KEY_S, renderer_.IsKeyPressed(GLFW_KEY_S));
+        snapshot.SetKeyState(GLFW_KEY_Q, renderer_.IsKeyPressed(GLFW_KEY_Q));
+        snapshot.SetKeyState(GLFW_KEY_E, renderer_.IsKeyPressed(GLFW_KEY_E));
+        snapshot.SetKeyState(GLFW_KEY_F1, renderer_.IsKeyPressed(GLFW_KEY_F1));
         glm::vec2 mouseDelta = renderer_.MouseDelta();
         if (editor_.WantsKeyboardCapture()) {
-            snapshot.keyState.clear();
+            snapshot.ClearKeyState();
         }
         if (editor_.WantsMouseCapture() && !renderer_.IsCursorCaptured()) {
             snapshot.mouseAxisState.clear();

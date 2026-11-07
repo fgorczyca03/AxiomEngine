@@ -61,7 +61,9 @@ void InputSystem::ClearBindings() {
 
 void InputSystem::EvaluateBindings(const std::unordered_map<int, bool>& keyState) {
     InputSnapshot snapshot{};
-    snapshot.keyState = keyState;
+    for (const auto& [keyCode, pressed] : keyState) {
+        snapshot.SetKeyState(keyCode, pressed);
+    }
     EvaluateBindings(snapshot);
 }
 
@@ -80,13 +82,10 @@ void InputSystem::EvaluateBindings(const InputSnapshot& snapshot) {
         for (const InputBinding& binding : entry.bindings) {
             float sample = 0.0F;
             if (binding.type == InputBindingType::Key) {
-                const auto it = snapshot.keyState.find(binding.positiveKey);
-                sample = (it != snapshot.keyState.end() && it->second) ? binding.scale : 0.0F;
+                sample = snapshot.IsKeyPressed(binding.positiveKey) ? binding.scale : 0.0F;
             } else if (binding.type == InputBindingType::Axis) {
-                const auto positive = snapshot.keyState.find(binding.positiveKey);
-                const auto negative = snapshot.keyState.find(binding.negativeKey);
-                const bool posPressed = positive != snapshot.keyState.end() && positive->second;
-                const bool negPressed = negative != snapshot.keyState.end() && negative->second;
+                const bool posPressed = snapshot.IsKeyPressed(binding.positiveKey);
+                const bool negPressed = snapshot.IsKeyPressed(binding.negativeKey);
                 sample = (posPressed ? 1.0F : 0.0F) - (negPressed ? 1.0F : 0.0F);
                 sample *= binding.scale;
             } else if (binding.type == InputBindingType::MouseAxis) {
@@ -271,6 +270,10 @@ void InputSystem::ApplyActionStates(const std::vector<NamedInputAction>& states)
 }
 
 float InputSystem::ApplyDeadzoneAndCurve(float value, float deadzone, float curveExponent) {
+    if (deadzone <= 0.0F && curveExponent == 1.0F) {
+        return std::clamp(value, -1.0F, 1.0F);
+    }
+
     const float magnitude = std::abs(value);
     if (magnitude <= deadzone) {
         return 0.0F;
