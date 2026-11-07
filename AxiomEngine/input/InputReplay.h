@@ -9,8 +9,10 @@
 
 namespace axiom::input {
 
+// Playback replaces live action state one fixed simulation step at a time.
 enum class InputReplayMode : unsigned char { Idle, Recording, Playback };
 
+// Records named input actions rather than raw keys, so replays follow the active action map.
 class InputReplay {
   public:
     bool StartRecording(const std::string& path);
@@ -18,6 +20,7 @@ class InputReplay {
     bool StartPlayback(const std::string& path);
     void StopPlayback();
 
+    // Call these from the fixed-step loop so catch-up frames are recorded and replayed consistently.
     bool RecordFixedStep(const InputSystem& input);
     bool ApplyNextFixedStep(InputSystem& input);
 

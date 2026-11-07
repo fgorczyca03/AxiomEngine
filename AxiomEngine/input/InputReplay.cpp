@@ -11,7 +11,9 @@
 namespace axiom::input {
 
 namespace {
+// Version the text format so a future parser can reject files it does not understand.
 constexpr const char* ReplayHeader = "AXIOM_INPUT_REPLAY_V1";
+// Avoid trusting a damaged file's action count when reserving memory during playback.
 constexpr std::size_t MaxActionsPerFrame = 4096;
 } // namespace
 
@@ -24,6 +26,7 @@ bool InputReplay::StartRecording(const std::string& path) {
     const std::filesystem::path replayPath(path);
     std::error_code error;
     if (!replayPath.parent_path().empty()) {
+        // Recording into Sandbox/replays works on a fresh checkout without manual folder setup.
         std::filesystem::create_directories(replayPath.parent_path(), error);
         if (error) {
             SetError("Could not create replay directory: " + error.message());
@@ -37,6 +40,7 @@ bool InputReplay::StartRecording(const std::string& path) {
         return false;
     }
     output_.imbue(std::locale::classic());
+    // Decimal separators and number parsing should not depend on the user's desktop locale.
     output_ << ReplayHeader << '\n';
     if (!output_.good()) {
         SetError("Could not write replay header: " + path_);
@@ -94,6 +98,7 @@ bool InputReplay::RecordFixedStep(const InputSystem& input) {
         return false;
     }
 
+    // CopyActionStates sorts by action name, making identical input produce stable text files.
     input.CopyActionStates(actionStates_);
     if (actionStates_.size() > MaxActionsPerFrame) {
         SetError("Replay frame contains too many input actions.");
@@ -133,6 +138,7 @@ bool InputReplay::ApplyNextFixedStep(InputSystem& input) {
         return false;
     }
 
+    // Apply a frame only after every action has been parsed and validated successfully.
     actionStates_.clear();
     actionStates_.reserve(std::max(actionStates_.capacity(), actionCount));
     std::string previousName;
@@ -165,6 +171,7 @@ bool InputReplay::ApplyNextFixedStep(InputSystem& input) {
 
 void InputReplay::StopStreams() {
     if (output_.is_open()) {
+        // Finish the current recording before switching modes or discarding the stream.
         output_.flush();
         output_.close();
     }
@@ -176,6 +183,7 @@ void InputReplay::StopStreams() {
 
 void InputReplay::SetError(std::string message) {
     lastError_ = std::move(message);
+    // A failed stream must not leave the UI showing an active recorder or player.
     StopStreams();
 }
 

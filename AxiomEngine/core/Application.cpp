@@ -145,6 +145,7 @@ int Application::Run() {
             mouseDelta = glm::vec2(0.0F);
         }
         const bool replayingInput = inputReplay_.Mode() == input::InputReplayMode::Playback;
+        // During playback the recorded actions drive gameplay; live keys only control the editor.
         if (!replayingInput) {
             input_.EvaluateBindings(snapshot);
         }
@@ -167,6 +168,7 @@ int Application::Run() {
         accumulator += static_cast<float>(time_.DeltaSeconds());
 
         while (accumulator >= fixedStep) {
+            // Consume exactly one recorded frame for each simulation step, including catch-up steps.
             if (inputReplay_.Mode() == input::InputReplayMode::Playback &&
                 !inputReplay_.ApplyNextFixedStep(input_)) {
                 const std::string replayError = inputReplay_.LastError();

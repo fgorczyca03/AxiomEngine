@@ -256,10 +256,12 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
 void EditorLayer::DrawDebugOverlay(const EditorFrameInfo& frameInfo, scene::SceneSerializer& serializer,
                                    input::InputSystem& inputSystem, input::InputReplay& inputReplay) {
     const float frameSeconds = std::max(frameInfo.deltaSeconds, 0.0F);
+    // Reuse a small fixed buffer instead of allocating history on every editor frame.
     frameTimeHistory_[frameTimeCursor_] = frameSeconds;
     frameTimeCursor_ = (frameTimeCursor_ + 1U) % frameTimeHistory_.size();
     frameTimeCount_ = std::min(frameTimeCount_ + 1U, frameTimeHistory_.size());
 
+    // Before the buffer fills, ignore its unused zero-initialized slots.
     float totalFrameSeconds = 0.0F;
     for (std::size_t i = 0; i < frameTimeCount_; ++i) {
         totalFrameSeconds += frameTimeHistory_[i];
@@ -278,6 +280,7 @@ void EditorLayer::DrawDebugOverlay(const EditorFrameInfo& frameInfo, scene::Scen
     ImGui::Text("Rolling average (%zu frames): %.2f ms", frameTimeCount_, averageFrameSeconds * 1000.0F);
 
     ImGui::Separator();
+    // Show action state and bindings together so a strange value can be traced to its source.
     const std::vector<std::string> actionNames = inputSystem.ActionNames();
     const std::string actionMapLabel = "Input Action Map (" + std::to_string(actionNames.size()) + ")";
     if (ImGui::TreeNode(actionMapLabel.c_str())) {
@@ -319,6 +322,7 @@ void EditorLayer::DrawDebugOverlay(const EditorFrameInfo& frameInfo, scene::Scen
 
     ImGui::Separator();
     ImGui::TextUnformatted("Fixed-step input replay");
+    // Keep one obvious replay path for the first version; each new recording replaces the previous one.
     const std::string latestReplayPath = (assetRoot_ / "replays" / "latest.axreplay").string();
     ImGui::TextWrapped("File: %s", latestReplayPath.c_str());
     if (inputReplay.Mode() == input::InputReplayMode::Idle) {
