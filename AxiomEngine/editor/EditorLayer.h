@@ -5,6 +5,7 @@
 
 #include <array>
 #include <chrono>
+#include <cstddef>
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -21,6 +22,11 @@ class SceneSerializer;
 
 namespace axiom::rendering {
 class Renderer;
+}
+
+namespace axiom::input {
+class InputReplay;
+class InputSystem;
 }
 
 namespace axiom::editor {
@@ -52,7 +58,8 @@ class EditorLayer {
 
     void BeginFrame();
     void Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, scene::SceneSerializer& serializer,
-              unsigned int sceneTexture, rendering::Renderer& renderer);
+              unsigned int sceneTexture, rendering::Renderer& renderer, input::InputSystem& input,
+              input::InputReplay& inputReplay);
     void EndFrame();
 
     [[nodiscard]] int SceneViewportWidth() const;
@@ -68,6 +75,10 @@ class EditorLayer {
     void DrawProjectBrowser();
     void DrawAssetDirectory(const std::filesystem::path& directory, const std::string& filter);
     [[nodiscard]] const std::vector<std::string>& AvailableLuaScripts() const;
+    void DrawAssetDirectory(const std::filesystem::path& directory);
+    void DrawDebugOverlay(const EditorFrameInfo& frameInfo, scene::SceneSerializer& serializer,
+                          input::InputSystem& input, input::InputReplay& inputReplay);
+    [[nodiscard]] std::vector<std::string> AvailableLuaScripts() const;
     void CreateLuaScript();
     void DrawConsole();
     void CreatePrimitive(ecs::ECSWorld& world, rendering::PrimitiveShape shape);
@@ -90,13 +101,17 @@ class EditorLayer {
     std::array<char, 128> assetFilter_{};
     std::array<char, 64> newScriptName_{};
     std::array<char, 32768> scriptEditorBuffer_{};
+    std::array<float, 60> frameTimeHistory_{};
     int sceneViewportWidth_{1280};
     int sceneViewportHeight_{720};
+    std::size_t frameTimeCount_{0};
+    std::size_t frameTimeCursor_{0};
     bool showHierarchy_{true};
     bool showInspector_{true};
     bool showScene_{true};
     bool showProject_{true};
     bool showConsole_{false};
+    bool showDebugOverlay_{false};
     bool deleteSelected_{false};
     bool scriptEditorDirty_{false};
     bool scriptEditorTooLarge_{false};

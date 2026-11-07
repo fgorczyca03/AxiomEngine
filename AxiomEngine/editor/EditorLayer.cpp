@@ -2,6 +2,8 @@
 
 #include "AxiomEngine/editor/EditorLayer.h"
 
+#include "AxiomEngine/input/InputReplay.h"
+#include "AxiomEngine/input/InputSystem.h"
 #include "AxiomEngine/physics/Components.h"
 #include "AxiomEngine/profiling/Profiling.h"
 #include "AxiomEngine/rendering/Components.h"
@@ -62,6 +64,17 @@ float DistanceToSegment(const ImVec2& point, const ImVec2& start, const ImVec2& 
     }
     const glm::vec2 closest = glm::vec2(start.x, start.y) + direction * t;
     return glm::length(glm::vec2(point.x, point.y) - closest);
+}
+
+const char* BindingTypeName(input::InputBindingType type) {
+    switch (type) {
+    case input::InputBindingType::Key: return "Key";
+    case input::InputBindingType::Axis: return "Key Axis";
+    case input::InputBindingType::MouseAxis: return "Mouse Axis";
+    case input::InputBindingType::GamepadAxis: return "Gamepad Axis";
+    case input::InputBindingType::GamepadButton: return "Gamepad Button";
+    }
+    return "Unknown";
 }
 
 } // namespace
@@ -133,7 +146,8 @@ void EditorLayer::BeginFrame() {
 }
 
 void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, scene::SceneSerializer& serializer,
-                       unsigned int sceneTexture, rendering::Renderer& renderer) {
+                       unsigned int sceneTexture, rendering::Renderer& renderer, input::InputSystem& inputSystem,
+                       input::InputReplay& inputReplay) {
     if (!initialized_) {
         return;
     }
@@ -179,6 +193,7 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
             ImGui::MenuItem("Scene", nullptr, &showScene_);
             ImGui::MenuItem("Project", nullptr, &showProject_);
             ImGui::MenuItem("Console", nullptr, &showConsole_);
+            ImGui::MenuItem("Debug Overlay", nullptr, &showDebugOverlay_);
             ImGui::EndMenu();
         }
         ImGui::EndMenuBar();
@@ -219,6 +234,9 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
     if (showConsole_) {
         DrawConsole();
     }
+    if (showDebugOverlay_) {
+        DrawDebugOverlay(frameInfo, serializer, inputSystem, inputReplay);
+    }
 
     if (deleteSelected_) {
         DeleteSelectedEntity(world);
@@ -236,6 +254,109 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
         ImGui::End();
     }
 
+}
+
+void EditorLayer::DrawDebugOverlay(const EditorFrameInfo& frameInfo, scene::SceneSerializer& serializer,
+                                   input::InputSystem& inputSystem, input::InputReplay& inputReplay) {
+    const float frameSeconds = std::max(frameInfo.deltaSeconds, 0.0F);
+    // Reuse a small fixed buffer instead of allocating history on every editor frame.
+    frameTimeHistory_[frameTimeCursor_] = frameSeconds;
+    frameTimeCursor_ = (frameTimeCursor_ + 1U) % frameTimeHistory_.size();
+    frameTimeCount_ = std::min(frameTimeCount_ + 1U, frameTimeHistory_.size());
+
+    // Before the buffer fills, ignore its unused zero-initialized slots.
+    float totalFrameSeconds = 0.0F;
+    for (std::size_t i = 0; i < frameTimeCount_; ++i) {
+        totalFrameSeconds += frameTimeHistory_[i];
+    }
+    const float averageFrameSeconds = frameTimeCount_ > 0U
+                                          ? totalFrameSeconds / static_cast<float>(frameTimeCount_)
+                                          : 0.0F;
+
+    if (!ImGui::Begin("Debug Overlay", &showDebugOverlay_)) {
+        ImGui::End();
+        return;
+    }
+
+    ImGui::Text("Frame: %.2f ms  |  %.1f FPS", frameSeconds * 1000.0F,
+                frameSeconds > 0.000001F ? 1.0F / frameSeconds : 0.0F);
+    ImGui::Text("Rolling average (%zu frames): %.2f ms", frameTimeCount_, averageFrameSeconds * 1000.0F);
+
+    ImGui::Separator();
+    // Show action state and bindings together so a strange value can be traced to its source.
+    const std::vector<std::string> actionNames = inputSystem.ActionNames();
+    const std::string actionMapLabel = "Input Action Map (" + std::to_string(actionNames.size()) + ")";
+    if (ImGui::TreeNode(actionMapLabel.c_str())) {
+        for (const std::string& actionName : actionNames) {
+            ImGui::Text("%s: %+.3f%s%s", actionName.c_str(), inputSystem.Value(actionName),
+                        inputSystem.IsPressed(actionName) ? "  pressed" : "",
+                        inputSystem.WasPressed(actionName) ? "  just pressed" :
+                            (inputSystem.WasReleased(actionName) ? "  just released" : ""));
+            const std::string bindingsNode = "Bindings##" + actionName;
+            if (ImGui::TreeNode(bindingsNode.c_str())) {
+                for (const input::InputBindingDescription& binding : inputSystem.DescribeBindings(actionName)) {
+                    if (binding.type == input::InputBindingType::Axis) {
+                        ImGui::BulletText("%s: negative key %d, positive key %d, scale %.2f",
+                                          BindingTypeName(binding.type), binding.negativeCode,
+                                          binding.positiveCode, binding.scale);
+                    } else {
+                        ImGui::BulletText("%s: code %d, scale %.2f", BindingTypeName(binding.type),
+                                          binding.positiveCode, binding.scale);
+                    }
+                }
+                ImGui::TreePop();
+            }
+        }
+        ImGui::TreePop();
+    }
+
+    ImGui::Separator();
+    const auto& validationIssues = serializer.ValidationIssues();
+    ImGui::Text("Scene validation: %zu warning%s", validationIssues.size(),
+                validationIssues.size() == 1U ? "" : "s");
+    if (validationIssues.empty()) {
+        ImGui::TextDisabled("No scene validation warnings.");
+    } else {
+        for (const scene::SceneSerializer::ValidationIssue& issue : validationIssues) {
+            ImGui::BulletText("Line %zu, entity %zu: %s", issue.lineNumber, issue.entityIndex,
+                              issue.message.c_str());
+        }
+    }
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Fixed-step input replay");
+    // Keep one obvious replay path for the first version; each new recording replaces the previous one.
+    const std::string latestReplayPath = (assetRoot_ / "replays" / "latest.axreplay").string();
+    ImGui::TextWrapped("File: %s", latestReplayPath.c_str());
+    if (inputReplay.Mode() == input::InputReplayMode::Idle) {
+        if (ImGui::Button("Record Input Replay")) {
+            if (inputReplay.StartRecording(latestReplayPath)) {
+                Log("Recording fixed-step input to " + latestReplayPath);
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Play Latest Replay")) {
+            if (inputReplay.StartPlayback(latestReplayPath)) {
+                Log("Playing fixed-step input from " + latestReplayPath);
+            }
+        }
+    } else if (inputReplay.Mode() == input::InputReplayMode::Recording) {
+        ImGui::Text("Recording frame %llu", static_cast<unsigned long long>(inputReplay.FrameIndex()));
+        if (ImGui::Button("Stop Recording")) {
+            if (inputReplay.StopRecording()) {
+                Log("Saved input replay to " + latestReplayPath);
+            }
+        }
+    } else {
+        ImGui::Text("Playback frame %llu", static_cast<unsigned long long>(inputReplay.FrameIndex()));
+        if (ImGui::Button("Stop Playback")) {
+            inputReplay.StopPlayback();
+        }
+    }
+    if (!inputReplay.LastError().empty()) {
+        ImGui::TextColored(ImVec4(1.0F, 0.38F, 0.35F, 1.0F), "%s", inputReplay.LastError().c_str());
+    }
+    ImGui::End();
 }
 
 void EditorLayer::EndFrame() {

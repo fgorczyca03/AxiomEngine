@@ -67,6 +67,15 @@ void InputSystem::EvaluateBindings(const std::unordered_map<int, bool>& keyState
 }
 
 void InputSystem::EvaluateBindings(const InputSnapshot& snapshot) {
+    // Remove stale values when an action was deleted from the map, so it cannot stay pressed forever.
+    for (auto it = actions_.begin(); it != actions_.end();) {
+        if (actionMap_.find(it->first) == actionMap_.end()) {
+            it = actions_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
     for (const auto& [actionName, entry] : actionMap_) {
         float combinedValue = 0.0F;
         for (const InputBinding& binding : entry.bindings) {
@@ -227,6 +236,34 @@ std::vector<InputBindingDescription> InputSystem::DescribeBindings(const std::st
         descriptions.push_back({actionName, binding.type, binding.positiveKey, binding.negativeKey, binding.scale});
     }
     return descriptions;
+}
+
+void InputSystem::CopyActionStates(std::vector<NamedInputAction>& destination) const {
+    destination.clear();
+    destination.reserve(std::max(destination.capacity(), actions_.size()));
+    for (const auto& [actionName, state] : actions_) {
+        destination.push_back({actionName, state});
+    }
+    std::sort(destination.begin(), destination.end(), [](const NamedInputAction& left, const NamedInputAction& right) {
+        return left.name < right.name;
+    });
+}
+
+void InputSystem::ApplyActionStates(const std::vector<NamedInputAction>& states) {
+    // Actions absent from this replay frame are released, including actions added after recording.
+    for (auto& [actionName, state] : actions_) {
+        const auto found = std::lower_bound(states.begin(), states.end(), actionName,
+                                            [](const NamedInputAction& entry, const std::string& name) {
+                                                return entry.name < name;
+                                            });
+        if (found == states.end() || found->name != actionName) {
+            state = {};
+        }
+    }
+
+    for (const NamedInputAction& entry : states) {
+        actions_[entry.name] = entry.state;
+    }
 }
 
 float InputSystem::ApplyDeadzoneAndCurve(float value, float deadzone, float curveExponent) {
