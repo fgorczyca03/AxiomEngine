@@ -120,18 +120,15 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
                 instance->second.activeThisUpdate = true;
                 script.lastError.clear();
             } else {
-                std::error_code errorCode;
-                // Poll source time for hot reload without rereading and compiling the file on every update.
-                const auto writeTime = std::filesystem::last_write_time(ResolveScriptPath(script.scriptPath), errorCode);
-                if (errorCode) {
-                    RecordError("load", "Could not read script for Entity " + std::to_string(entity) + ": " +
-                                             script.scriptPath);
-                    script.enabled = false;
-                    script.lastError = errors_.back().message;
-                    return;
-                }
-                if (writeTime != instance->second.lastWriteTime) {
-                    if (!LoadScript(entity, script.scriptPath)) {
+                // Throttle source checks while keeping edited scripts reloadable.
+                instance->second.timeUntilReloadCheck -= dt;
+                if (instance->second.timeUntilReloadCheck <= 0.0F) {
+                    instance->second.timeUntilReloadCheck = ScriptReloadCheckIntervalSeconds;
+                    std::error_code errorCode;
+                    const auto writeTime = std::filesystem::last_write_time(ResolveScriptPath(script.scriptPath), errorCode);
+                    if (errorCode) {
+                        RecordError("load", "Could not read script for Entity " + std::to_string(entity) + ": " +
+                                                 script.scriptPath);
                         script.enabled = false;
                         script.lastError = errors_.back().message;
                         return;

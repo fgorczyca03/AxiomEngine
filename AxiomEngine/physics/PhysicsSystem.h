@@ -10,6 +10,18 @@ struct TransformComponent;
 
 namespace axiom::physics {
 
+struct RigidBodyComponent;
+
+namespace detail {
+
+struct PhysicsBodyRef {
+    ecs::Entity entity{};
+    scene::TransformComponent* transform{nullptr};
+    RigidBodyComponent* rigidBody{nullptr};
+};
+
+} // namespace detail
+
 // Small fixed-step AABB solver used by the sandbox while collision features grow.
 class PhysicsSystem {
   public:

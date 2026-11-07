@@ -951,17 +951,9 @@ void EditorLayer::DrawAssetDirectory(const std::filesystem::path& directory, con
              !error && it != end; it.increment(error)) {
             std::error_code entryError;
             if (it->is_symlink(entryError) || entryError) {
+                // Keep project links from sending the browser outside the content root.
                 continue;
             }
-
-    std::string filter = assetFilter_.data();
-    std::transform(filter.begin(), filter.end(), filter.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    for (const auto& entry : entries) {
-        const std::string relative = entry.path().lexically_relative(assetRoot_).generic_string();
-        std::error_code entryError;
-        if (entry.is_symlink(entryError)) {
-            // Do not let a project link send the browser outside the selected content root.
-            continue;
             CachedAssetEntry cached{};
             cached.path = it->path();
             cached.relativePath = cached.path.lexically_relative(assetRoot_).generic_string();

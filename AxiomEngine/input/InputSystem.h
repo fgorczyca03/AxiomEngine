@@ -49,7 +49,9 @@ struct InputBindingDescription {
 
 struct InputSnapshot {
     // The platform layer fills only devices it sampled; missing codes read as neutral input.
-    std::unordered_map<int, bool> keyState{};
+    static constexpr std::size_t KeyCodeCount = 512;
+
+    std::bitset<KeyCodeCount> keyState{};
     std::unordered_map<int, float> mouseAxisState{};
     std::unordered_map<int, bool> gamepadButtonState{};
     std::unordered_map<int, float> gamepadAxisState{};
