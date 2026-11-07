@@ -58,7 +58,14 @@ bool Renderer::Initialize(int width, int height, const char* title) {
     }
 
     glEnable(GL_DEPTH_TEST);
-    shader_.LoadFromFiles(std::string(AXIOM_ASSET_ROOT) + "/shaders/basic.vert", std::string(AXIOM_ASSET_ROOT) + "/shaders/basic.frag");
+    if (shader_.LoadFromFiles(std::string(AXIOM_ASSET_ROOT) + "/shaders/basic.vert",
+                              std::string(AXIOM_ASSET_ROOT) + "/shaders/basic.frag")) {
+        shader_.Bind();
+        shader_.SetVec3("uLightPos", {2.0F, 4.0F, 2.0F});
+        shader_.SetVec3("uLightColor", {1.0F, 0.95F, 0.85F});
+        shader_.SetFloat("uAmbientStrength", 0.18F);
+        shader_.SetFloat("uShadowStrength", 0.35F);
+    }
     for (std::size_t i = 0; i < primitiveMeshes_.size(); ++i) {
         if (!primitiveMeshes_[i].Build(static_cast<PrimitiveShape>(i))) {
             std::cerr << "Axiom could not build the " << PrimitiveShapeNames[i] << " primitive mesh.\n";
@@ -85,12 +92,8 @@ bool Renderer::Initialize(int width, int height, const char* title) {
         [this](RenderContext& context) {
             context.shader.Bind();
             const glm::mat4 viewProjection = context.camera.ViewProjection();
-            context.shader.SetVec3("uLightPos", {2.0F, 4.0F, 2.0F});
-            context.shader.SetVec3("uLightColor", {1.0F, 0.95F, 0.85F});
             context.shader.SetVec3("uViewPos", context.camera.Position());
             context.shader.SetMat4("uViewProjection", viewProjection);
-            context.shader.SetFloat("uAmbientStrength", 0.18F);
-            context.shader.SetFloat("uShadowStrength", 0.35F);
 
             constexpr std::array<glm::vec3, 4> materialPalette{
                 glm::vec3{0.25F, 0.65F, 0.95F},
@@ -98,13 +101,19 @@ bool Renderer::Initialize(int width, int height, const char* title) {
                 glm::vec3{0.35F, 0.9F, 0.55F},
                 glm::vec3{0.85F, 0.75F, 0.35F},
             };
+            bool hasLastMaterial = false;
+            std::uint32_t lastMaterialHandle = 0U;
 
             context.world.ForEach<scene::TransformComponent, MeshComponent>(
                 [&](ecs::Entity, const scene::TransformComponent& transform, const MeshComponent& mesh) {
-                    const glm::vec3 baseColor = materialPalette[mesh.materialHandle % materialPalette.size()];
                     context.shader.SetMat4("uModel", transform.world);
-                    context.shader.SetVec3("uBaseColor", baseColor);
-                    context.shader.SetFloat("uRoughness", mesh.materialHandle == 0U ? 0.65F : 0.35F);
+                    if (!hasLastMaterial || mesh.materialHandle != lastMaterialHandle) {
+                        const glm::vec3 baseColor = materialPalette[mesh.materialHandle % materialPalette.size()];
+                        context.shader.SetVec3("uBaseColor", baseColor);
+                        context.shader.SetFloat("uRoughness", mesh.materialHandle == 0U ? 0.65F : 0.35F);
+                        lastMaterialHandle = mesh.materialHandle;
+                        hasLastMaterial = true;
+                    }
                     std::size_t primitiveIndex = static_cast<std::size_t>(mesh.primitive);
                     if (primitiveIndex >= primitiveMeshes_.size()) {
                         primitiveIndex = static_cast<std::size_t>(PrimitiveShape::Cube);

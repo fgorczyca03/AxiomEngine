@@ -4,11 +4,13 @@
 #include "AxiomEngine/rendering/Components.h"
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -37,6 +39,19 @@ class EditorLayer {
   private:
     enum class GizmoMode : unsigned char { Translate, Rotate, Scale };
 
+    struct CachedAssetEntry {
+        std::filesystem::path path{};
+        std::string relativePath{};
+        std::string filename{};
+        std::string lowerFilename{};
+        bool isDirectory{false};
+    };
+
+    struct CachedAssetDirectory {
+        std::vector<CachedAssetEntry> entries{};
+        std::chrono::steady_clock::time_point refreshAfter{};
+    };
+
   public:
     bool Initialize(GLFWwindow* window, std::filesystem::path assetRoot);
     void Shutdown();
@@ -58,6 +73,8 @@ class EditorLayer {
     void DrawInspector(ecs::ECSWorld& world);
     void DrawScene(ecs::ECSWorld& world, unsigned int sceneTexture, rendering::Renderer& renderer, float deltaSeconds);
     void DrawProjectBrowser();
+    void DrawAssetDirectory(const std::filesystem::path& directory, const std::string& filter);
+    [[nodiscard]] const std::vector<std::string>& AvailableLuaScripts() const;
     void DrawAssetDirectory(const std::filesystem::path& directory);
     void DrawDebugOverlay(const EditorFrameInfo& frameInfo, scene::SceneSerializer& serializer,
                           input::InputSystem& input, input::InputReplay& inputReplay);
@@ -75,6 +92,9 @@ class EditorLayer {
     std::string settingsPath_{};
     ecs::Entity selectedEntity_{0};
     std::vector<std::string> consoleMessages_{};
+    std::unordered_map<std::string, CachedAssetDirectory> assetDirectoryCache_{};
+    mutable std::vector<std::string> availableLuaScripts_{};
+    mutable std::chrono::steady_clock::time_point refreshScriptsAfter_{};
     std::string selectedAsset_{};
     std::string scriptEditorAsset_{};
     std::string saveStatus_{};
