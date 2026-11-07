@@ -20,6 +20,7 @@ struct JobDesc {
     std::string name{};
     JobPriority priority{JobPriority::Normal};
     std::function<void()> task{};
+    // IDs returned by Enqueue describe which pending jobs must finish first.
     std::vector<std::size_t> dependencies{};
 };
 
@@ -51,6 +52,7 @@ class ThreadPoolJobSystem final : public IJobSystem {
     [[nodiscard]] std::size_t WorkerCount() const override;
 
   private:
+    // Workers wait for Flush so the whole dependency graph is present before jobs start.
     void WorkerMain();
 
     std::vector<JobDesc> queue_{};

@@ -26,6 +26,7 @@ void ECSWorld::DestroyEntity(Entity entity) {
     const auto loc = location->second;
     auto& archetype = archetypes_[loc.archetype];
 
+    // Swap-and-pop avoids leaving a hole in the archetype's tightly packed component columns.
     const Entity moved = archetype.entities.back();
     if (loc.row + 1U < archetype.entities.size()) {
         archetype.entities[loc.row] = moved;
@@ -76,6 +77,7 @@ void ECSWorld::MoveEntity(Entity entity, const Signature& dstSignature, std::opt
     const std::size_t dstRow = dst.entities.size();
     dst.entities.push_back(entity);
 
+    // Move every component the destination still owns before compacting the source row below.
     for (auto& [componentId, srcStorage] : src.columns) {
         if (!dstSignature.test(componentId)) {
             continue;

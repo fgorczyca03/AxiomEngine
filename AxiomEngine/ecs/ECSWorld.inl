@@ -15,6 +15,7 @@ template <typename T> void ECSWorld::RegisterComponent() {
         throw std::length_error("ECS component limit exceeded");
     }
 
+    // This ID is the bit position used by every archetype signature in this world.
     const std::size_t id = nextComponentId_++;
     meta_[key] = ComponentMeta{
         .id = id,
@@ -40,6 +41,7 @@ template <typename T> void ECSWorld::AddComponent(Entity entity, const T& compon
     }
     const std::size_t componentId = ComponentType<T>();
     if (location->second.signature.test(componentId)) {
+        // Replacing an existing component does not change the archetype or row.
         *GetComponent<T>(entity) = component;
         return;
     }
@@ -95,6 +97,7 @@ template <typename... Ts, typename Fn> void ECSWorld::ForEach(Fn&& fn) {
     Signature required{};
     (required.set(ComponentType<Ts>()), ...);
 
+    // Matching signatures let each callback walk contiguous columns without per-entity lookups.
     for (auto& archetype : archetypes_) {
         if ((archetype.signature & required) != required) {
             continue;

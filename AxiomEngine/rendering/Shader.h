@@ -7,6 +7,7 @@
 
 namespace axiom::rendering {
 
+// Owns one linked program and caches uniform locations until the program is replaced.
 class Shader {
   public:
     Shader() = default;

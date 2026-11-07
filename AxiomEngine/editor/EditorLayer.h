@@ -90,6 +90,7 @@ class EditorLayer {
     std::filesystem::path assetRoot_{};
     std::filesystem::path scenePath_{};
     std::string settingsPath_{};
+    // Selection and dock layout are editor state; entity data remains in the ECS world.
     ecs::Entity selectedEntity_{0};
     std::vector<std::string> consoleMessages_{};
     std::unordered_map<std::string, CachedAssetDirectory> assetDirectoryCache_{};

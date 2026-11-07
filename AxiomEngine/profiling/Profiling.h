@@ -10,6 +10,7 @@ class IProfilerBackend {
     virtual void FrameMark() = 0;
 };
 
+// Profiling stays optional; with no backend installed, zones and frame marks are no-ops.
 void SetBackend(IProfilerBackend* backend);
 IProfilerBackend* GetBackend();
 

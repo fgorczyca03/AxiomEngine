@@ -11,6 +11,7 @@ out vec3 vWorldPos;
 void main() {
     vec4 world = uModel * vec4(aPos, 1.0);
     vWorldPos = world.xyz;
+    // Inverse-transpose keeps normals perpendicular under non-uniform object scale.
     vNormal = mat3(transpose(inverse(uModel))) * aNormal;
     gl_Position = uViewProjection * world;
 }

@@ -10,6 +10,7 @@
 
 namespace axiom::scene {
 
+// Text scene files remain inspectable, while validation issues let the editor recover from bad records.
 class SceneSerializer {
   public:
     explicit SceneSerializer(const assets::AssetRegistry* assetRegistry = nullptr);

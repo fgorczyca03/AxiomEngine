@@ -10,6 +10,7 @@ class AssetImporter {
   public:
     explicit AssetImporter(AssetRegistry& registry);
 
+    // Cooked files are currently byte-for-byte copies; registration still tracks type and content hashes.
     bool Import(AssetType type, const std::string& sourcePath, const std::string& cookedRoot);
     bool ImportDirectory(const std::string& sourceRoot, const std::string& cookedRoot);
 

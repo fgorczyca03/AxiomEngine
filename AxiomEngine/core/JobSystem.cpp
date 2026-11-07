@@ -29,6 +29,7 @@ std::size_t InlineJobSystem::WorkerCount() const { return 1; }
 
 ThreadPoolJobSystem::ThreadPoolJobSystem(std::optional<std::size_t> workerCount) {
     const std::size_t requested = workerCount.value_or(std::thread::hardware_concurrency());
+    // hardware_concurrency can return zero on some systems; one worker keeps Flush usable everywhere.
     const std::size_t count = std::max<std::size_t>(1, requested);
     workers_.reserve(count);
     for (std::size_t index = 0; index < count; ++index) {
@@ -70,6 +71,7 @@ std::size_t ThreadPoolJobSystem::Enqueue(JobDesc job) {
 
 void ThreadPoolJobSystem::Flush() {
     std::unique_lock<std::mutex> lock(mutex_);
+    // No worker starts before this point, so dependent job IDs can be resolved against a complete batch.
     flushRequested_ = true;
 
     for (std::size_t id = 0; id < queue_.size(); ++id) {
@@ -83,6 +85,7 @@ void ThreadPoolJobSystem::Flush() {
 
     cv_.wait(lock, [this]() { return completed_.size() == queue_.size(); });
 
+    // IDs are only meaningful within one batch; the next Enqueue starts again at zero.
     queue_.clear();
     remainingDependencies_.clear();
     dependents_.clear();
@@ -125,6 +128,7 @@ void ThreadPoolJobSystem::WorkerMain() {
                     --remainingDependencies_[dependentId];
                 }
                 if (remainingDependencies_[dependentId] == 0) {
+                    // Make dependents runnable as soon as their last prerequisite finishes.
                     readyQueue_.push_back(dependentId);
                 }
             }

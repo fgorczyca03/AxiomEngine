@@ -12,6 +12,7 @@ float Clamp01(float value) { return std::clamp(value, 0.0F, 1.0F); }
 } // namespace
 
 void InputSystem::Update() {
+    // Keep held state intact; only clear one-poll press/release edges here.
     for (auto& [_, action] : actions_) {
         action.justPressed = false;
         action.justReleased = false;
@@ -105,6 +106,7 @@ void InputSystem::EvaluateBindings(const InputSnapshot& snapshot) {
             combinedValue += sample;
         }
 
+        // Multiple bindings can add together, but a named action always stays within a normalized range.
         combinedValue = std::clamp(combinedValue, -1.0F, 1.0F);
         const float processed = ApplyDeadzoneAndCurve(combinedValue, entry.deadzone, entry.curveExponent);
         SetActionState(actionName, std::abs(processed) > 0.0001F, processed);
@@ -117,6 +119,7 @@ bool InputSystem::SaveActionMap(const std::string& path) const {
         return false;
     }
 
+    // Keep action maps human-editable; the header lets us reject unsupported formats cleanly.
     out << "AXIOM_ACTION_MAP_V1\n";
     for (const auto& [actionName, entry] : actionMap_) {
         out << "ACTION " << actionName << " " << entry.deadzone << " " << entry.curveExponent << "\n";
@@ -276,6 +279,7 @@ float InputSystem::ApplyDeadzoneAndCurve(float value, float deadzone, float curv
         return 0.0F;
     }
     const float sign = value < 0.0F ? -1.0F : 1.0F;
+    // Remap the live range back to [0, 1] so a full stick press still reaches full action strength.
     const float normalized = (magnitude - deadzone) / (1.0F - deadzone);
     return sign * std::pow(std::clamp(normalized, 0.0F, 1.0F), std::max(curveExponent, 0.01F));
 }

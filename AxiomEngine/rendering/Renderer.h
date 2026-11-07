@@ -13,6 +13,7 @@ struct GLFWwindow;
 
 namespace axiom::rendering {
 
+// Owns the OpenGL window/context and the off-screen texture shown by the editor's Scene panel.
 class Renderer {
   public:
     bool Initialize(int width, int height, const char* title);

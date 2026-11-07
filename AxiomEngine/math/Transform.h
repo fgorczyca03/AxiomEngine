@@ -14,6 +14,7 @@ struct Transform {
     glm::vec3 scale{1.0F};
 
     [[nodiscard]] glm::mat4 LocalMatrix() const {
+        // Column-vector convention: scale the mesh, rotate it, then place it in its parent's space.
         return glm::translate(glm::mat4(1.0F), translation) * glm::toMat4(rotation) * glm::scale(glm::mat4(1.0F), scale);
     }
 };

@@ -8,6 +8,7 @@
 namespace axiom::rendering {
 
 enum class PrimitiveShape : std::uint8_t {
+    // Numeric values are serialized in scenes and prefabs; add new shapes at the end, before Count.
     Cube = 0,
     Sphere,
     Circle,

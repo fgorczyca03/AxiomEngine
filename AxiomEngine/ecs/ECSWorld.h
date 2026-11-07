@@ -15,6 +15,7 @@ using Entity = std::uint32_t;
 constexpr std::size_t MaxComponents = 64;
 using Signature = std::bitset<MaxComponents>;
 
+// Entities with the same component signature share an archetype; each component type is stored in its own column.
 class ECSWorld {
   public:
     ECSWorld() = default;
@@ -63,6 +64,7 @@ class ECSWorld {
 
     struct Archetype {
         Signature signature{};
+        // The entity vector and every component column use the same row index.
         std::vector<Entity> entities{};
         std::unordered_map<std::size_t, std::unique_ptr<IStorage>> columns{};
     };

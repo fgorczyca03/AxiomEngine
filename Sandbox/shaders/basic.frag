@@ -18,11 +18,13 @@ void main() {
     vec3 H = normalize(L + V);
 
     float diff = max(dot(N, L), 0.0);
+    // Rougher surfaces use a wider, dimmer highlight in this small Blinn-Phong shader.
     float specPower = mix(96.0, 16.0, clamp(uRoughness, 0.0, 1.0));
     float spec = pow(max(dot(N, H), 0.0), specPower) * (1.0 - clamp(uRoughness, 0.0, 1.0));
 
     float distanceToLight = length(uLightPos - vWorldPos);
     float attenuation = 1.0 / (1.0 + 0.08 * distanceToLight + 0.025 * distanceToLight * distanceToLight);
+    // This is a ground-proximity darkening cue, not a sampled shadow map.
     float contactShadow = 1.0 - uShadowStrength * smoothstep(0.0, 1.25, max(vWorldPos.y + 2.0, 0.0));
 
     vec3 ambient = uBaseColor * uAmbientStrength;

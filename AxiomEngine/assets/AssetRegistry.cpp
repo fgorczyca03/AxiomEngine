@@ -25,6 +25,7 @@ template <typename T> bool ParseUnsigned(std::string_view text, T& value) {
 
 AssetHandle AssetRegistry::Register(AssetType type, const std::string& sourcePath, std::uint64_t sourceHash) {
     if (const auto existing = FindByPath(sourcePath); existing.has_value()) {
+        // Reimporting a known path should not invalidate handles already saved in scenes.
         return existing->handle;
     }
 
@@ -93,6 +94,7 @@ bool AssetRegistry::SaveToFile(const std::string& path) const {
     for (const auto& [handle, _] : byHandle_) {
         handles.push_back(handle);
     }
+    // unordered_map iteration order is not stable, so sort to keep registry files reviewable.
     std::sort(handles.begin(), handles.end());
     for (const AssetHandle handle : handles) {
         const AssetMetadata& meta = byHandle_.at(handle);
@@ -109,6 +111,7 @@ bool AssetRegistry::LoadFromFile(const std::string& path) {
         return false;
     }
 
+    // Parse into temporary maps; a bad or empty file must not erase the registry already in memory.
     std::unordered_map<AssetHandle, AssetMetadata> loadedByHandle{};
     std::unordered_map<std::string, AssetHandle> loadedByPath{};
     AssetHandle loadedNextHandle = 1;

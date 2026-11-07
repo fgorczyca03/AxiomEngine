@@ -9,6 +9,7 @@
 namespace axiom::input {
 
 struct InputAction {
+    // pressed/value persist between polls; the edge flags describe only the latest transition.
     bool pressed{false};
     bool justPressed{false};
     bool justReleased{false};
@@ -47,9 +48,8 @@ struct InputBindingDescription {
 };
 
 struct InputSnapshot {
-    static constexpr std::size_t KeyCodeCount = 512;
-
-    std::bitset<KeyCodeCount> keyState{};
+    // The platform layer fills only devices it sampled; missing codes read as neutral input.
+    std::unordered_map<int, bool> keyState{};
     std::unordered_map<int, float> mouseAxisState{};
     std::unordered_map<int, bool> gamepadButtonState{};
     std::unordered_map<int, float> gamepadAxisState{};
@@ -68,6 +68,7 @@ struct InputSnapshot {
     void ClearKeyState() { keyState.reset(); }
 };
 
+// Converts raw device snapshots into named actions shared by camera controls and game code.
 class InputSystem {
   public:
     void Update();
@@ -97,6 +98,7 @@ class InputSystem {
     void ApplyActionStates(const std::vector<NamedInputAction>& states);
 
   private:
+    // Bindings are grouped by action so several devices can contribute to one named control.
     struct ActionMapEntry {
       float deadzone{0.0F};
       float curveExponent{1.0F};

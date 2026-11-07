@@ -31,6 +31,8 @@ bool CalculateMinimumOverlap(const BodyRef& a, const BodyRef& b, AxisOverlap& re
         return false;
     }
 
+    // The shallowest axis is the cheapest direction to separate two overlapping boxes.
+    AxisOverlap result{};
     result.depth = overlap.x;
     result.normal = {delta.x < 0.0F ? -1.0F : 1.0F, 0.0F, 0.0F};
 
@@ -54,6 +56,7 @@ void ResolvePairCollision(BodyRef& a, BodyRef& b) {
         return;
     }
 
+    // Share positional correction by inverse mass, so heavier bodies move less and static ones do not move.
     AxisOverlap overlap{};
     if (!CalculateMinimumOverlap(a, b, overlap)) {
         return;
@@ -73,6 +76,7 @@ void ResolvePairCollision(BodyRef& a, BodyRef& b) {
 
     const glm::vec3 relativeVelocity = b.rigidBody->velocity - a.rigidBody->velocity;
     const float velocityAlongNormal = glm::dot(relativeVelocity, overlap.normal);
+    // Already separating: positional correction is enough, so an impulse would pull the bodies back together.
     if (velocityAlongNormal > 0.0F) {
         return;
     }
@@ -92,6 +96,8 @@ void PhysicsSystem::Step(ecs::ECSWorld& world, float dt) {
             bodies_.push_back({entity, &transform, &rb});
         });
 
+    // Stable entity order makes pair resolution repeatable across runs.
+    std::sort(bodies.begin(), bodies.end(), [](const BodyRef& lhs, const BodyRef& rhs) { return lhs.entity < rhs.entity; });
     const auto byEntity = [](const BodyRef& lhs, const BodyRef& rhs) { return lhs.entity < rhs.entity; };
     if (!std::is_sorted(bodies_.begin(), bodies_.end(), byEntity)) {
         std::sort(bodies_.begin(), bodies_.end(), byEntity);
@@ -110,6 +116,7 @@ void PhysicsSystem::Step(ecs::ECSWorld& world, float dt) {
         }
         body.rigidBody->force = glm::vec3(0.0F);
 
+        // This runtime's starter physics uses a fixed floor plane; full collider/scene support is separate work.
         const float floorCenter = FloorY + body.rigidBody->halfExtent.y;
         if (body.transform->local.translation.y < floorCenter) {
             body.transform->local.translation.y = floorCenter;
