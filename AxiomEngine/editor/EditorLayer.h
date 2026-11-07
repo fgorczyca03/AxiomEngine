@@ -75,10 +75,8 @@ class EditorLayer {
     void DrawProjectBrowser();
     void DrawAssetDirectory(const std::filesystem::path& directory, const std::string& filter);
     [[nodiscard]] const std::vector<std::string>& AvailableLuaScripts() const;
-    void DrawAssetDirectory(const std::filesystem::path& directory);
     void DrawDebugOverlay(const EditorFrameInfo& frameInfo, scene::SceneSerializer& serializer,
                           input::InputSystem& input, input::InputReplay& inputReplay);
-    [[nodiscard]] std::vector<std::string> AvailableLuaScripts() const;
     void CreateLuaScript();
     void DrawConsole();
     void CreatePrimitive(ecs::ECSWorld& world, rendering::PrimitiveShape shape);

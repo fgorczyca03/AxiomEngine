@@ -32,7 +32,6 @@ bool CalculateMinimumOverlap(const BodyRef& a, const BodyRef& b, AxisOverlap& re
     }
 
     // The shallowest axis is the cheapest direction to separate two overlapping boxes.
-    AxisOverlap result{};
     result.depth = overlap.x;
     result.normal = {delta.x < 0.0F ? -1.0F : 1.0F, 0.0F, 0.0F};
 
@@ -97,7 +96,6 @@ void PhysicsSystem::Step(ecs::ECSWorld& world, float dt) {
         });
 
     // Stable entity order makes pair resolution repeatable across runs.
-    std::sort(bodies.begin(), bodies.end(), [](const BodyRef& lhs, const BodyRef& rhs) { return lhs.entity < rhs.entity; });
     const auto byEntity = [](const BodyRef& lhs, const BodyRef& rhs) { return lhs.entity < rhs.entity; };
     if (!std::is_sorted(bodies_.begin(), bodies_.end(), byEntity)) {
         std::sort(bodies_.begin(), bodies_.end(), byEntity);

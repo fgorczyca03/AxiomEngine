@@ -28,10 +28,8 @@ SceneGraph::ResolveResult SceneGraph::ResolveTransform(ecs::Entity entity) {
         if (existing->second.state == VisitState::Resolved) {
             return {true, existing->second.worldChanged};
         }
-        if (state == VisitState::Visiting) {
-            // A stale or cyclic parent link must not recurse forever; the caller will use its local transform.
-            return false;
         if (existing->second.state == VisitState::Visiting) {
+            // A cyclic parent must not recurse forever; the caller will use its local transform.
             return {};
         }
     }
@@ -57,15 +55,6 @@ SceneGraph::ResolveResult SceneGraph::ResolveTransform(ecs::Entity entity) {
                 forceLocalUpdate = true;
             }
         }
-        if (!hasParentTransform) {
-            // Missing parents and broken cycles are treated as roots so the scene can still render.
-            transform->world = transform->local.LocalMatrix();
-        }
-
-        transform->dirty = false;
-        state = VisitState::Resolved;
-        return true;
-    };
     }
 
     const bool worldChanged = forceLocalUpdate || parentChanged;
