@@ -65,6 +65,7 @@ void InputSystem::EvaluateBindings(const std::unordered_map<int, bool>& keyState
 }
 
 void InputSystem::EvaluateBindings(const InputSnapshot& snapshot) {
+    // Remove stale values when an action was deleted from the map, so it cannot stay pressed forever.
     for (auto it = actions_.begin(); it != actions_.end();) {
         if (actionMap_.find(it->first) == actionMap_.end()) {
             it = actions_.erase(it);
@@ -250,6 +251,7 @@ void InputSystem::CopyActionStates(std::vector<NamedInputAction>& destination) c
 }
 
 void InputSystem::ApplyActionStates(const std::vector<NamedInputAction>& states) {
+    // Actions absent from this replay frame are released, including actions added after recording.
     for (auto& [actionName, state] : actions_) {
         const auto found = std::lower_bound(states.begin(), states.end(), actionName,
                                             [](const NamedInputAction& entry, const std::string& name) {
