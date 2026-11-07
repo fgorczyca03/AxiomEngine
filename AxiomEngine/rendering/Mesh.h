@@ -4,6 +4,7 @@
 
 namespace axiom::rendering {
 
+// A built-in primitive's VAO and buffers; Build/Destroy must run while its GL context is current.
 class Mesh {
   public:
     Mesh() = default;

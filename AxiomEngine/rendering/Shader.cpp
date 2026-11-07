@@ -76,6 +76,7 @@ Shader::~Shader() {
 }
 
 bool Shader::LoadFromFiles(const std::string& vertexPath, const std::string& fragmentPath) {
+    // Build a replacement first, so a compile error does not discard the last working program.
     const auto vertex = Compile(GL_VERTEX_SHADER, ReadText(vertexPath), vertexPath);
     const auto fragment = Compile(GL_FRAGMENT_SHADER, ReadText(fragmentPath), fragmentPath);
     if (vertex == 0U || fragment == 0U) {
@@ -114,6 +115,7 @@ bool Shader::LoadFromFiles(const std::string& vertexPath, const std::string& fra
         glDeleteProgram(program_);
     }
     program_ = program;
+    // Uniform locations are tied to a linked program and cannot be reused after relinking.
     uniformLocations_.clear();
     return true;
 }

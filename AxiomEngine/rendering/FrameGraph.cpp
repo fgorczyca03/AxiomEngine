@@ -24,6 +24,7 @@ FrameGraphPass& FrameGraph::AddPass(const std::string& name, std::function<void(
     FrameGraphPass pass{};
     pass.name = name;
     pass.execute = std::move(execute);
+    // Capture resource declarations at registration time; Execute does not rerun the setup callback.
     setup(pass.builder);
     passes_.push_back(std::move(pass));
     return passes_.back();

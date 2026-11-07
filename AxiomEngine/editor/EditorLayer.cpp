@@ -35,6 +35,7 @@ namespace {
 bool ProjectToScreen(const glm::mat4& viewProjection, const glm::vec3& position, const ImVec2& imageMin,
                      const ImVec2& imageSize, ImVec2& screenPosition) {
     const glm::vec4 clip = viewProjection * glm::vec4(position, 1.0F);
+    // Points behind the camera cannot be used for gizmo hit-testing.
     if (clip.w <= 0.0001F) {
         return false;
     }
@@ -52,6 +53,7 @@ float DistanceToSegment(const ImVec2& point, const ImVec2& start, const ImVec2& 
     const glm::vec2 direction{end.x - start.x, end.y - start.y};
     const glm::vec2 offset{point.x - start.x, point.y - start.y};
     const float lengthSquared = glm::dot(direction, direction);
+    // Clamp to the drawn segment so clicking near an axis extension does not grab the handle.
     const float t = lengthSquared > 0.0001F ? std::clamp(glm::dot(offset, direction) / lengthSquared, 0.0F, 1.0F)
                                            : 0.0F;
     if (fraction != nullptr) {
@@ -78,6 +80,7 @@ bool EditorLayer::Initialize(GLFWwindow* window, std::filesystem::path assetRoot
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_DockingEnable;
     settingsPath_ = (assetRoot_.parent_path() / "AxiomEditor.ini").string();
+    // Dear ImGui persists dock positions outside the content folder, next to the project root.
     io.IniFilename = settingsPath_.c_str();
 
     ImGui::StyleColorsDark();
@@ -96,6 +99,7 @@ bool EditorLayer::Initialize(GLFWwindow* window, std::filesystem::path assetRoot
         window_ = nullptr;
         return false;
     }
+    // If the GL backend fails, unwind the GLFW backend and context initialized above.
     if (!ImGui_ImplOpenGL3_Init("#version 450 core")) {
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
@@ -181,6 +185,7 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
         ImGui::EndMenuBar();
     }
 
+    // Build the starter layout only once; after that, let ImGui's saved layout win.
     const ImGuiID dockspaceId = ImGui::GetID("AxiomEditorDockspace");
     const bool needsDefaultLayout = ImGui::DockBuilderGetNode(dockspaceId) == nullptr;
     const ImVec2 dockspaceSize = ImGui::GetContentRegionAvail();
@@ -256,6 +261,7 @@ void EditorLayer::BuildDefaultLayout(unsigned int dockspaceId, float width, floa
     ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dockspaceId, ImVec2(width, height));
 
+    // Leave the center Scene view large, with the Project browser across the bottom.
     ImGuiID topId = dockspaceId;
     ImGuiID projectId = 0;
     ImGui::DockBuilderSplitNode(topId, ImGuiDir_Down, 0.24F, &projectId, &topId);
@@ -299,6 +305,7 @@ void EditorLayer::DrawHierarchy(ecs::ECSWorld& world) {
     world.ForEach<scene::TransformComponent, scene::SceneNodeComponent, rendering::MeshComponent>(
         [&](ecs::Entity entity, const scene::TransformComponent&, const scene::SceneNodeComponent&,
             const rendering::MeshComponent&) { entities.push_back(entity); });
+    // ECS archetype order can change after component edits; keep the visible hierarchy predictable.
     std::sort(entities.begin(), entities.end());
     if (selectedEntity_ == 0U && !entities.empty()) {
         selectedEntity_ = entities.front();
@@ -472,6 +479,7 @@ void EditorLayer::DrawScene(ecs::ECSWorld& world, unsigned int sceneTexture, ren
     }
     ImGui::Separator();
     const ImVec2 available = ImGui::GetContentRegionAvail();
+    // FBO dimensions are physical pixels, while ImGui lays out the image in logical pixels.
     const ImVec2 framebufferScale = ImGui::GetIO().DisplayFramebufferScale;
     sceneViewportWidth_ = std::max(1, static_cast<int>(std::lround(available.x * framebufferScale.x)));
     sceneViewportHeight_ = std::max(1, static_cast<int>(std::lround(available.y * framebufferScale.y)));
@@ -485,6 +493,7 @@ void EditorLayer::DrawScene(ecs::ECSWorld& world, unsigned int sceneTexture, ren
         return;
     }
 
+    // Fit the rendered texture inside the panel without stretching the camera view.
     const float imageAspect = static_cast<float>(sceneViewportWidth_) / static_cast<float>(sceneViewportHeight_);
     const float availableAspect = available.x / available.y;
     ImVec2 imageSize = available;
@@ -500,6 +509,7 @@ void EditorLayer::DrawScene(ecs::ECSWorld& world, unsigned int sceneTexture, ren
                  ImVec2(1.0F, 0.0F));
 
     ImGuiIO& io = ImGui::GetIO();
+    // Navigation and gizmo input only belong to the actual image, not the panel toolbar or empty margins.
     const bool viewportHovered = ImGui::IsItemHovered();
     const ImVec2 imageMin = ImGui::GetItemRectMin();
     const bool rightMouseDown = ImGui::IsMouseDown(ImGuiMouseButton_Right);
@@ -578,6 +588,7 @@ void EditorLayer::DrawScene(ecs::ECSWorld& world, unsigned int sceneTexture, ren
                 }
                 if (projectedLength >= 0.001F) {
                     screenAxes[index] = projectedUnit / projectedLength;
+                    // One world unit projects to projectedLength pixels; invert it for drag-to-world conversion.
                     worldPerPixel[index] = 1.0F / projectedLength;
                     axisVisible[index] = true;
                 }
@@ -647,6 +658,7 @@ void EditorLayer::DrawScene(ecs::ECSWorld& world, unsigned int sceneTexture, ren
             if (viewportHovered && hoveredAxis >= 0 && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                 !sceneNavigationActive_) {
                 const auto index = static_cast<std::size_t>(hoveredAxis);
+                // Anchor the drag at mouse-down so each frame applies the total delta once, without accumulating drift.
                 gizmoDragging_ = true;
                 gizmoActiveAxis_ = hoveredAxis;
                 gizmoDragStartMouse_ = glm::vec2(io.MousePos.x, io.MousePos.y);
@@ -665,6 +677,7 @@ void EditorLayer::DrawScene(ecs::ECSWorld& world, unsigned int sceneTexture, ren
                 if (gizmoMode_ == GizmoMode::Rotate) {
                     const float currentAngle = std::atan2(io.MousePos.y - gizmoOrigin.y,
                                                           io.MousePos.x - gizmoOrigin.x);
+                    // Remainder unwraps the 2π boundary, avoiding a full-turn jump when crossing the top of the ring.
                     const float angleDelta = std::remainder(currentAngle - gizmoRotationStartAngle_,
                                                              6.28318530718F);
                     transform->local.rotation = glm::normalize(
@@ -675,6 +688,7 @@ void EditorLayer::DrawScene(ecs::ECSWorld& world, unsigned int sceneTexture, ren
                     if (gizmoMode_ == GizmoMode::Translate) {
                         transform->local.translation = gizmoDragStartTranslation_ + gizmoDragAxisWorld_ * axisDelta;
                     } else {
+                        // Keep scales positive so an axis drag cannot invert the object unexpectedly.
                         transform->local.scale[gizmoActiveAxis_] =
                             std::max(0.01F, gizmoDragStartScale_[gizmoActiveAxis_] + axisDelta);
                     }
@@ -757,6 +771,7 @@ void EditorLayer::DrawProjectBrowser() {
                     std::ifstream scriptFile(selectedPath);
                     std::string source((std::istreambuf_iterator<char>(scriptFile)), std::istreambuf_iterator<char>());
                     scriptEditorBuffer_.fill('\0');
+                    // The editor uses a fixed buffer to avoid reallocating user input every keystroke.
                     scriptEditorTooLarge_ = source.size() >= scriptEditorBuffer_.size();
                     const std::size_t copied = std::min(source.size(), scriptEditorBuffer_.size() - 1U);
                     std::copy_n(source.data(), copied, scriptEditorBuffer_.data());
@@ -820,6 +835,7 @@ void EditorLayer::DrawAssetDirectory(const std::filesystem::path& directory) {
         const std::string relative = entry.path().lexically_relative(assetRoot_).generic_string();
         std::error_code entryError;
         if (entry.is_symlink(entryError)) {
+            // Do not let a project link send the browser outside the selected content root.
             continue;
         }
         if (entry.is_directory(entryError)) {
@@ -877,6 +893,7 @@ void EditorLayer::CreateLuaScript() {
     if (name.ends_with(".lua")) {
         name.resize(name.size() - 4U);
     }
+    // A simple filename keeps new scripts inside the scripts folder without path parsing surprises.
     const bool validName = !name.empty() && std::all_of(name.begin(), name.end(), [](unsigned char character) {
         return std::isalnum(character) != 0 || character == '_' || character == '-';
     });
@@ -965,6 +982,7 @@ void EditorLayer::DeleteSelectedEntity(ecs::ECSWorld& world) {
     if (const auto* node = world.GetComponent<scene::SceneNodeComponent>(selectedEntity_)) {
         parent = node->parent;
     }
+    // Reparent direct children before deleting this node so none keep a dangling parent ID.
     world.ForEach<scene::SceneNodeComponent, scene::TransformComponent>(
         [&](ecs::Entity entity, scene::SceneNodeComponent& node, scene::TransformComponent& transform) {
             if (entity != selectedEntity_ && node.parent == selectedEntity_) {
@@ -988,6 +1006,7 @@ bool EditorLayer::SaveScene(ecs::ECSWorld& world, scene::SceneSerializer& serial
 
 void EditorLayer::Log(std::string message) {
     consoleMessages_.push_back(std::move(message));
+    // The editor console is a live log, not an archive; cap it so long sessions do not grow without bound.
     constexpr std::size_t maxEntries = 200;
     if (consoleMessages_.size() > maxEntries) {
         consoleMessages_.erase(consoleMessages_.begin(), consoleMessages_.begin() +

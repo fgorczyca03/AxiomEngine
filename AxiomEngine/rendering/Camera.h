@@ -17,6 +17,7 @@ class Camera {
     [[nodiscard]] glm::vec3 Forward() const;
     [[nodiscard]] glm::vec3 Right() const;
 
+    // Yaw and pitch keep the free-fly camera easy to steer without accumulating quaternion drift.
     glm::vec3 position_{0.0F, 1.5F, 3.5F};
     float yawDegrees_{-90.0F};
     float pitchDegrees_{-23.19859F};

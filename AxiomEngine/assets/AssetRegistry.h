@@ -10,6 +10,7 @@ namespace axiom::assets {
 
 class AssetRegistry {
   public:
+    // Handles stay stable when the same source path is imported again.
     AssetHandle Register(AssetType type, const std::string& sourcePath, std::uint64_t sourceHash);
     AssetHandle RegisterOrUpdate(
         AssetType type,
@@ -24,6 +25,7 @@ class AssetRegistry {
     bool LoadFromFile(const std::string& path);
 
   private:
+    // Keep both lookup directions in sync; serialized scenes store handles while tools browse by path.
     AssetHandle nextHandle_{1};
     std::unordered_map<AssetHandle, AssetMetadata> byHandle_{};
     std::unordered_map<std::string, AssetHandle> byPath_{};

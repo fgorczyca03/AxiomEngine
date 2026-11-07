@@ -57,6 +57,7 @@ bool Renderer::Initialize(int width, int height, const char* title) {
         return false;
     }
 
+    // Every GL object in this class belongs to the window's current context.
     glEnable(GL_DEPTH_TEST);
     shader_.LoadFromFiles(std::string(AXIOM_ASSET_ROOT) + "/shaders/basic.vert", std::string(AXIOM_ASSET_ROOT) + "/shaders/basic.frag");
     for (std::size_t i = 0; i < primitiveMeshes_.size(); ++i) {
@@ -120,6 +121,7 @@ bool Renderer::Initialize(int width, int height, const char* title) {
 void Renderer::Shutdown() {
     AXIOM_PROFILE_FUNCTION();
     if (window_ != nullptr) {
+        // Mesh and framebuffer handles must be deleted before their context goes away.
         glfwMakeContextCurrent(window_);
         for (Mesh& mesh : primitiveMeshes_) {
             mesh.Destroy();
@@ -161,6 +163,7 @@ void Renderer::RenderWorld(ecs::ECSWorld& world) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     RenderContext context{world, camera_, shader_};
     frameGraph_.Execute(context);
+    // ImGui draws the editor after this call, so leave the default framebuffer bound again.
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     int framebufferWidth = 0;
     int framebufferHeight = 0;
@@ -177,6 +180,7 @@ bool Renderer::ResizeSceneViewport(int width, int height) {
     if (window_ == nullptr) {
         return false;
     }
+    // Docking can briefly report zero-sized panels; the FBO still needs valid dimensions.
     width = std::clamp(width, 1, 4096);
     height = std::clamp(height, 1, 4096);
     if (width == sceneWidth_ && height == sceneHeight_) {
@@ -189,6 +193,7 @@ bool Renderer::ResizeSceneViewport(int width, int height) {
         glGenRenderbuffers(1, &sceneDepthBuffer_);
     }
 
+    // The editor displays this color attachment as its Scene image; depth stays in a renderbuffer.
     glBindTexture(GL_TEXTURE_2D, sceneColorTexture_);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);

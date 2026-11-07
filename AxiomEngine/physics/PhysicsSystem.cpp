@@ -33,6 +33,7 @@ AxisOverlap CalculateMinimumOverlap(const BodyRef& a, const BodyRef& b) {
     const glm::vec3 delta = b.transform->local.translation - a.transform->local.translation;
     const glm::vec3 overlap = a.rigidBody->halfExtent + b.rigidBody->halfExtent - glm::abs(delta);
 
+    // The shallowest axis is the cheapest direction to separate two overlapping boxes.
     AxisOverlap result{};
     result.depth = overlap.x;
     result.normal = {delta.x < 0.0F ? -1.0F : 1.0F, 0.0F, 0.0F};
@@ -72,6 +73,7 @@ void ResolvePairCollision(BodyRef& a, BodyRef& b) {
         return;
     }
 
+    // Share positional correction by inverse mass, so heavier bodies move less and static ones do not move.
     const glm::vec3 correction = overlap.normal * overlap.depth;
     a.transform->local.translation -= correction * (inverseMassA / inverseMassTotal);
     b.transform->local.translation += correction * (inverseMassB / inverseMassTotal);
@@ -80,6 +82,7 @@ void ResolvePairCollision(BodyRef& a, BodyRef& b) {
 
     const glm::vec3 relativeVelocity = b.rigidBody->velocity - a.rigidBody->velocity;
     const float velocityAlongNormal = glm::dot(relativeVelocity, overlap.normal);
+    // Already separating: positional correction is enough, so an impulse would pull the bodies back together.
     if (velocityAlongNormal > 0.0F) {
         return;
     }
@@ -99,6 +102,7 @@ void PhysicsSystem::Step(ecs::ECSWorld& world, float dt) {
             bodies.push_back({entity, &transform, &rb});
         });
 
+    // Stable entity order makes pair resolution repeatable across runs.
     std::sort(bodies.begin(), bodies.end(), [](const BodyRef& lhs, const BodyRef& rhs) { return lhs.entity < rhs.entity; });
 
     for (BodyRef& body : bodies) {
@@ -111,6 +115,7 @@ void PhysicsSystem::Step(ecs::ECSWorld& world, float dt) {
         }
         body.rigidBody->force = glm::vec3(0.0F);
 
+        // This runtime's starter physics uses a fixed floor plane; full collider/scene support is separate work.
         const float floorCenter = FloorY + body.rigidBody->halfExtent.y;
         if (body.transform->local.translation.y < floorCenter) {
             body.transform->local.translation.y = floorCenter;

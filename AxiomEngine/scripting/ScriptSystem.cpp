@@ -19,6 +19,7 @@ void ScriptSystem::SetAssetRoot(std::filesystem::path assetRoot) { assetRoot_ = 
 
 std::filesystem::path ScriptSystem::ResolveScriptPath(const std::string& scriptPath) const {
     const std::filesystem::path relativePath(scriptPath);
+    // Scripts must stay inside Sandbox/scripts; absolute paths and parent traversal are rejected.
     if (relativePath.empty() || relativePath.is_absolute() || relativePath.has_root_name()) {
         return {};
     }
@@ -50,6 +51,7 @@ bool ScriptSystem::LoadScript(ecs::Entity entity, const std::string& scriptPath)
         return false;
     }
 
+    // Inherit Lua's intentionally small base/math global set, but give this object private script variables.
     sol::environment environment(lua_, sol::create, lua_.globals());
     const sol::protected_function_result result = lua_.safe_script_file(absolutePath.string(), environment);
     if (!result.valid()) {
@@ -99,6 +101,7 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
                 script.lastError.clear();
             } else {
                 std::error_code errorCode;
+                // Poll source time for hot reload without rereading and compiling the file on every update.
                 const auto writeTime = std::filesystem::last_write_time(ResolveScriptPath(script.scriptPath), errorCode);
                 if (errorCode) {
                     RecordError("load", "Could not read script for Entity " + std::to_string(entity) + ": " +
@@ -119,6 +122,7 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
                 }
             }
 
+            // Lua edits this temporary table; C++ copies validated values back after Update returns.
             auto table = lua_.create_table();
             table["x"] = transform.local.translation.x;
             table["y"] = transform.local.translation.y;
@@ -137,6 +141,7 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
                 RecordError("update", "Entity " + std::to_string(entity) + " (" + script.scriptPath + "): " +
                                          scriptError.what());
                 script.enabled = false;
+                // Stop calling a broken script every tick; the Inspector can re-enable it after fixing the cause.
                 script.lastError = errors_.back().message;
                 return;
             }
@@ -169,6 +174,7 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
             script.lastError.clear();
     });
 
+    // Drop Lua environments after a script is detached, disabled, or its entity is destroyed.
     for (auto it = instances_.begin(); it != instances_.end();) {
         if (!activeInstances.contains(it->first)) {
             it = instances_.erase(it);

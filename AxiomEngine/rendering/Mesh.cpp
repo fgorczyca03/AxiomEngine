@@ -32,6 +32,7 @@ constexpr std::uint32_t SphereStacks = 20U;
 
 void AddTriangle(Vertices& vertices, Indices& indices, const glm::vec3& a, const glm::vec3& b,
                  const glm::vec3& c) {
+    // Each face owns its vertices here, which keeps cube/pyramid faces flat-lit.
     const glm::vec3 normal = glm::normalize(glm::cross(b - a, c - a));
     const auto first = static_cast<std::uint32_t>(vertices.size());
     vertices.push_back({a, normal});
@@ -42,6 +43,7 @@ void AddTriangle(Vertices& vertices, Indices& indices, const glm::vec3& a, const
 
 void AddOutwardTriangle(Vertices& vertices, Indices& indices, glm::vec3 a, glm::vec3 b, glm::vec3 c,
                         const glm::vec3& outwardHint) {
+    // Keep winding consistent so back-face culling and the generated normal point outward.
     const glm::vec3 normal = glm::cross(b - a, c - a);
     if (glm::dot(normal, outwardHint) < 0.0F) {
         std::swap(b, c);
@@ -183,6 +185,7 @@ void BuildUvShape(Vertices& vertices, Indices& indices, bool bean) {
         }
     }
 
+    // Unlike the faceted primitives, this grid shares vertices and averages face normals for smooth shading.
     for (std::size_t i = 0; i + 2U < indices.size(); i += 3U) {
         const std::uint32_t a = indices[i];
         const std::uint32_t b = indices[i + 1U];
@@ -203,6 +206,7 @@ void BuildUvShape(Vertices& vertices, Indices& indices, bool bean) {
 Mesh::~Mesh() { Destroy(); }
 
 bool Mesh::Build(PrimitiveShape shape) {
+    // Rebuilding a primitive replaces its old GL buffers before creating the new geometry.
     Destroy();
 
     Vertices vertices{};

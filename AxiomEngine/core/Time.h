@@ -12,6 +12,7 @@ class Time {
     [[nodiscard]] double ElapsedSeconds() const { return elapsedSeconds_; }
 
   private:
+    // Wall-clock corrections should not turn a frame delta negative or unexpectedly huge.
     using Clock = std::chrono::steady_clock;
     Clock::time_point start_{Clock::now()};
     Clock::time_point previous_{start_};

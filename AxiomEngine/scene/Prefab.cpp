@@ -21,6 +21,7 @@ bool Prefab::Save(const PrefabData& data, const std::string& path) const {
         return false;
     }
 
+    // V2 adds nested child instances; Load still accepts V1 files for existing projects.
     out << "AXIOM_PREFAB_V2\n";
     if (data.transform.has_value()) {
         WriteTransform(out, *data.transform, "TRANSFORM");
@@ -156,6 +157,7 @@ std::optional<ecs::Entity> Prefab::Instantiate(ecs::ECSWorld& world, const Prefa
     }
 
     for (const auto& child : data.children) {
+        // Resolve each child from its own prefab, then apply instance-level component replacements.
         const auto childData = Load(child.prefabPath);
         if (!childData.has_value()) {
             continue;
@@ -180,6 +182,7 @@ std::optional<ecs::Entity> Prefab::Instantiate(ecs::ECSWorld& world, const Prefa
             continue;
         }
 
+        // The parent link is assigned after instantiation so child-local overrides cannot detach the instance.
         SceneNodeComponent node{};
         if (SceneNodeComponent* existingNode = world.GetComponent<SceneNodeComponent>(*childEntity); existingNode != nullptr) {
             node = *existingNode;

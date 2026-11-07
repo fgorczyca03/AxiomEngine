@@ -40,6 +40,7 @@ struct FrameGraphPass {
     std::function<void(RenderContext&)> execute{};
 };
 
+// Passes declare resource use now; the current compiler keeps insertion order and leaves scheduling for later.
 class FrameGraph {
   public:
     void Reset();

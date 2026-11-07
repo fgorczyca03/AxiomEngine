@@ -29,6 +29,7 @@ class AssetManager {
     std::shared_ptr<TextureAsset> LoadTexture(const std::string& path);
 
   private:
+    // Weak entries avoid keeping large assets alive after their users release them.
     std::unordered_map<std::string, std::weak_ptr<rendering::Shader>> shaderCache_{};
     std::unordered_map<std::string, std::weak_ptr<MeshAsset>> meshCache_{};
     std::unordered_map<std::string, std::weak_ptr<TextureAsset>> textureCache_{};

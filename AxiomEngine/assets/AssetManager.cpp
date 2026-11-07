@@ -7,6 +7,7 @@
 namespace axiom::assets {
 
 std::shared_ptr<rendering::Shader> AssetManager::LoadShader(const std::string& key, const std::string& vertexPath, const std::string& fragmentPath) {
+    // Callers own the shared pointer; the cache only reuses an asset that is still in use.
     if (shaderCache_.contains(key)) {
         if (auto existing = shaderCache_[key].lock()) {
             return existing;

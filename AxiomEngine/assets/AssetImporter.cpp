@@ -23,6 +23,7 @@ bool AssetImporter::Import(AssetType type, const std::string& sourcePath, const 
 
     const std::uint64_t sourceHash = HashFile(sourcePath);
     const std::optional<AssetMetadata> existing = registry_.FindByPath(sourcePath);
+    // Skip the copy when both the source content and its cooked destination are already current.
     if (existing.has_value() && existing->sourceHash == sourceHash && existing->cookedPath == cookedPath && fs::exists(cookedPath)) {
         return true;
     }
@@ -93,6 +94,7 @@ std::uint64_t AssetImporter::HashFile(const std::string& path) {
         return 0;
     }
 
+    // FNV is used here as a fast change detector, not as a security checksum.
     constexpr std::uint64_t fnvOffset = 1469598103934665603ULL;
     constexpr std::uint64_t fnvPrime = 1099511628211ULL;
 

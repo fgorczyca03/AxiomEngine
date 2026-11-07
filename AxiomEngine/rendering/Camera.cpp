@@ -17,6 +17,7 @@ void Camera::Move(float forward, float right, float up, float deltaSeconds) {
 
     glm::vec3 movement = Forward() * forward + Right() * right + glm::vec3(0.0F, up, 0.0F);
     const float movementLength = glm::length(movement);
+    // Clamp the combined direction so moving diagonally does not make the camera faster.
     if (movementLength > 1.0F) {
         movement /= movementLength;
     }
@@ -25,6 +26,7 @@ void Camera::Move(float forward, float right, float up, float deltaSeconds) {
 
 void Camera::Rotate(float deltaX, float deltaY) {
     yawDegrees_ += deltaX * lookSensitivity_;
+    // At exactly +/-90 degrees the view direction becomes parallel to world-up, making Right undefined.
     pitchDegrees_ = std::clamp(pitchDegrees_ - deltaY * lookSensitivity_, -89.0F, 89.0F);
 }
 

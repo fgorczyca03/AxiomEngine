@@ -18,6 +18,7 @@ struct PrefabData {
     std::optional<physics::RigidBodyComponent> rigidBody{};
     struct ChildInstance {
         std::string prefabPath{};
+        // An override replaces that child's whole component value for this instance.
         std::optional<TransformComponent> transformOverride{};
         std::optional<SceneNodeComponent> nodeOverride{};
         std::optional<rendering::MeshComponent> meshOverride{};

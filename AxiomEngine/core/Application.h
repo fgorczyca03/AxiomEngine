@@ -23,6 +23,7 @@ class Application {
   private:
     void InitializeScene();
 
+    // Keep the long-lived engine systems together; the loop below defines their update order.
     Time time_{};
     ecs::ECSWorld world_{};
     rendering::Renderer renderer_{};

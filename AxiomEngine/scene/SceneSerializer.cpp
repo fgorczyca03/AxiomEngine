@@ -41,6 +41,7 @@ bool SceneSerializer::Save(const ecs::ECSWorld& world, const std::string& path) 
 
     out << "AXIOM_SCENE_V1\n";
 
+    // New optional fields stay at the end of each record so older scenes without them still load.
     world.ForEach<TransformComponent, SceneNodeComponent, rendering::MeshComponent, physics::RigidBodyComponent>(
         [&](ecs::Entity entity,
             const TransformComponent& transform,
@@ -88,6 +89,7 @@ bool SceneSerializer::Load(ecs::ECSWorld& world, const std::string& path) const 
 
     validationIssues_.clear();
 
+    // Validate the full file before creating entities; a malformed row should not leave a half-loaded scene.
     std::vector<SerializedEntity> entities{};
     std::string line;
     std::size_t lineNumber = 1;
@@ -134,6 +136,7 @@ bool SceneSerializer::Load(ecs::ECSWorld& world, const std::string& path) const 
                                                        primitiveValue);
             if (error != std::errc{} || end != serializedPrimitive.data() + serializedPrimitive.size() ||
                 !rendering::IsValidPrimitiveShape(primitiveValue)) {
+                // Older or damaged shape values should not make an otherwise usable scene disappear.
                 RecordValidationIssue(entities.size(), lineNumber, "Invalid primitive shape; defaulting to Cube");
                 data.mesh.primitive = rendering::PrimitiveShape::Cube;
             } else {
@@ -215,6 +218,7 @@ bool SceneSerializer::ValidateMeshComponent(rendering::MeshComponent& mesh, std:
     }
 
     bool valid = true;
+    // Handle zero means "use the built-in/default resource"; nonzero handles must match their declared type.
     if (mesh.meshHandle != 0U) {
         const auto meshAsset = assetRegistry_->FindByHandle(static_cast<assets::AssetHandle>(mesh.meshHandle));
         if (!meshAsset.has_value() || meshAsset->type != assets::AssetType::Mesh) {

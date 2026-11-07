@@ -17,6 +17,7 @@
 namespace axiom::core {
 
 Application::Application() : sceneGraph_(world_) {
+    // Component types must be registered before the first entity or system query uses them.
     world_.RegisterComponent<scene::TransformComponent>();
     world_.RegisterComponent<scene::SceneNodeComponent>();
     world_.RegisterComponent<scene::NameComponent>();
@@ -48,6 +49,7 @@ void Application::InitializeScene() {
     }
 
     if (!sceneLoaded) {
+        // Keep a broken existing scene intact so it can be repaired; only a missing file gets initialized on disk.
         if (sceneFileExists) {
             std::cerr << "Axiom scene could not be loaded; using the fallback scene without overwriting the existing file: "
                       << scenePath << '\n';
@@ -75,6 +77,7 @@ void Application::InitializeScene() {
         }
     }
 
+    // Load the user's bindings first, then add only the camera actions the editor depends on.
     bool actionMapChanged = false;
     if (!input_.LoadActionMap(actionMapPath)) {
         input_.ClearBindings();
@@ -163,7 +166,10 @@ int Application::Run() {
         }
         accumulator += static_cast<float>(time_.DeltaSeconds());
 
+        // Simulation catches up in fixed slices; rendering and editor input remain frame-rate driven.
         while (accumulator >= fixedStep) {
+            // These dependencies encode the data flow: physics moves bodies, scripts edit transforms,
+            // then the scene graph publishes the final world matrices for rendering.
             const std::size_t physicsJob =
                 jobs_.Enqueue({"PhysicsStep", JobPriority::High, [&]() { physics_.Step(world_, fixedStep); }});
 

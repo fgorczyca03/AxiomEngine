@@ -26,6 +26,7 @@ void SceneGraph::UpdateTransforms() {
             return true;
         }
         if (state == VisitState::Visiting) {
+            // A stale or cyclic parent link must not recurse forever; the caller will use its local transform.
             return false;
         }
         state = VisitState::Visiting;
@@ -41,6 +42,7 @@ void SceneGraph::UpdateTransforms() {
             }
         }
         if (!hasParentTransform) {
+            // Missing parents and broken cycles are treated as roots so the scene can still render.
             transform->world = transform->local.LocalMatrix();
         }
 
