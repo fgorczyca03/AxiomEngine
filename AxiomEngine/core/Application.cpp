@@ -147,9 +147,13 @@ int Application::Run() {
             snapshot.mouseAxisState.clear();
             mouseDelta = glm::vec2(0.0F);
         }
-        input_.EvaluateBindings(snapshot);
+        const bool replayingInput = inputReplay_.Mode() == input::InputReplayMode::Playback;
+        // During playback the recorded actions drive gameplay; live keys only control the editor.
+        if (!replayingInput) {
+            input_.EvaluateBindings(snapshot);
+        }
 
-        if (input_.WasPressed("ToggleCameraLook")) {
+        if (!replayingInput && input_.WasPressed("ToggleCameraLook")) {
             renderer_.SetCursorCaptured(!renderer_.IsCursorCaptured());
             mouseDelta = glm::vec2(0.0F);
         }
@@ -157,7 +161,7 @@ int Application::Run() {
         time_.Tick();
         const float cameraDeltaSeconds =
             static_cast<float>(std::clamp(time_.DeltaSeconds(), 0.0, 0.1));
-        if (renderer_.IsCursorCaptured()) {
+        if (!replayingInput && renderer_.IsCursorCaptured()) {
             renderer_.MoveCamera(input_.Value("CameraForward"),
                                  input_.Value("CameraRight"),
                                  input_.Value("CameraVertical"),
@@ -168,6 +172,21 @@ int Application::Run() {
 
         // Simulation catches up in fixed slices; rendering and editor input remain frame-rate driven.
         while (accumulator >= fixedStep) {
+            // Consume exactly one recorded frame for each simulation step, including catch-up steps.
+            if (inputReplay_.Mode() == input::InputReplayMode::Playback &&
+                !inputReplay_.ApplyNextFixedStep(input_)) {
+                const std::string replayError = inputReplay_.LastError();
+                inputReplay_.StopPlayback();
+                if (!replayError.empty()) {
+                    std::cerr << "Axiom input replay stopped: " << replayError << '\n';
+                }
+                input_.EvaluateBindings(snapshot);
+            }
+            if (inputReplay_.Mode() == input::InputReplayMode::Recording &&
+                !inputReplay_.RecordFixedStep(input_)) {
+                std::cerr << "Axiom input replay stopped: " << inputReplay_.LastError() << '\n';
+            }
+
             // These dependencies encode the data flow: physics moves bodies, scripts edit transforms,
             // then the scene graph publishes the final world matrices for rendering.
             const std::size_t physicsJob =
@@ -202,7 +221,7 @@ int Application::Run() {
 
         editor_.BeginFrame();
         editor_.Draw({static_cast<float>(time_.DeltaSeconds())}, world_, sceneSerializer_, renderer_.SceneTexture(),
-                     renderer_);
+                     renderer_, input_, inputReplay_);
         editor_.EndFrame();
 
         renderer_.EndFrame();
