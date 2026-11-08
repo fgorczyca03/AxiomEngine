@@ -39,4 +39,7 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGLFW_BUILD_WAYLAND=ON -DGLFW_BUILD_X11=ON --fresh
 
       - name: Build
-        run: cmake --build build --target AxiomRuntime --config Release
+        run: cmake --build build --target AxiomRuntime AxiomRuntimeTests --config Release
+
+      - name: Test runtime
+        run: ctest --test-dir build -R '^AxiomRuntimeTests$' --output-on-failure

@@ -31,8 +31,18 @@ class InputSystem;
 
 namespace axiom::editor {
 
+enum class RuntimeCommand { None, Play, Pause, Resume, Step, Stop, Record, Replay };
+
 struct EditorFrameInfo {
     float deltaSeconds{0.0F};
+    float simulationMilliseconds{0.0F};
+    std::size_t simulationSteps{0};
+    std::size_t tick{0};
+    bool playing{false};
+    bool paused{false};
+    bool recording{false};
+    bool replayFinished{false};
+    std::string runtimeStatus{};
 };
 
 class EditorLayer {
@@ -66,6 +76,7 @@ class EditorLayer {
     [[nodiscard]] int SceneViewportHeight() const;
     [[nodiscard]] bool WantsKeyboardCapture() const;
     [[nodiscard]] bool WantsMouseCapture() const;
+    RuntimeCommand ConsumeRuntimeCommand();
 
   private:
     void BuildDefaultLayout(unsigned int dockspaceId, float width, float height);
@@ -111,6 +122,8 @@ class EditorLayer {
     bool showProject_{true};
     bool showConsole_{false};
     bool showDebugOverlay_{false};
+    bool playing_{false};
+    RuntimeCommand runtimeCommand_{RuntimeCommand::None};
     bool deleteSelected_{false};
     bool scriptEditorDirty_{false};
     bool scriptEditorTooLarge_{false};

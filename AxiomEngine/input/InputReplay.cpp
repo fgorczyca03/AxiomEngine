@@ -12,12 +12,15 @@ namespace axiom::input {
 
 namespace {
 // Version the text format so a future parser can reject files it does not understand.
-constexpr const char* ReplayHeader = "AXIOM_INPUT_REPLAY_V1";
+constexpr const char* ReplayHeader = "AXIOM_INPUT_REPLAY_V2";
+constexpr const char* LegacyReplayHeader = "AXIOM_INPUT_REPLAY_V1";
 // Avoid trusting a damaged file's action count when reserving memory during playback.
 constexpr std::size_t MaxActionsPerFrame = 4096;
 } // namespace
 
-bool InputReplay::StartRecording(const std::string& path) {
+bool InputReplay::StartRecording(const std::string& path, float fixedStep) {
+    if (!std::isfinite(fixedStep) || fixedStep <= 0.0F) return false;
+    fixedStep_ = fixedStep;
     StopStreams();
     lastError_.clear();
     frameIndex_ = 0;
@@ -41,7 +44,7 @@ bool InputReplay::StartRecording(const std::string& path) {
     }
     output_.imbue(std::locale::classic());
     // Decimal separators and number parsing should not depend on the user's desktop locale.
-    output_ << ReplayHeader << '\n';
+    output_ << ReplayHeader << '\n' << std::setprecision(9) << fixedStep_ << '\n';
     if (!output_.good()) {
         SetError("Could not write replay header: " + path_);
         return false;
@@ -64,7 +67,7 @@ bool InputReplay::StopRecording() {
     return succeeded;
 }
 
-bool InputReplay::StartPlayback(const std::string& path) {
+bool InputReplay::StartPlayback(const std::string& path, float expectedFixedStep) {
     StopStreams();
     lastError_.clear();
     frameIndex_ = 0;
@@ -78,8 +81,14 @@ bool InputReplay::StartPlayback(const std::string& path) {
     input_.imbue(std::locale::classic());
 
     std::string header;
-    if (!std::getline(input_, header) || header != ReplayHeader) {
+    if (!std::getline(input_, header) || (header != ReplayHeader && header != LegacyReplayHeader)) {
         SetError("Replay file has an unsupported or malformed header: " + path_);
+        return false;
+    }
+    fixedStep_ = 1.0F / 120.0F;
+    if ((header == ReplayHeader && !(input_ >> fixedStep_)) ||
+        !std::isfinite(fixedStep_) || fixedStep_ <= 0.0F || fixedStep_ != expectedFixedStep) {
+        SetError("Replay fixed timestep does not match the simulation: " + path_);
         return false;
     }
     mode_ = InputReplayMode::Playback;

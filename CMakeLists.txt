@@ -217,6 +217,14 @@ add_executable(AxiomRuntime App/main.cpp)
 target_link_libraries(AxiomRuntime PRIVATE AxiomEngine)
 target_compile_options(AxiomRuntime PRIVATE ${AXIOM_WARNING_FLAGS})
 
+include(CTest)
+if(BUILD_TESTING)
+  add_executable(AxiomRuntimeTests tests/RuntimeTests.cpp)
+  target_link_libraries(AxiomRuntimeTests PRIVATE AxiomEngine)
+  target_compile_options(AxiomRuntimeTests PRIVATE ${AXIOM_WARNING_FLAGS})
+  add_test(NAME AxiomRuntimeTests COMMAND AxiomRuntimeTests)
+endif()
+
 install(TARGETS AxiomRuntime
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
