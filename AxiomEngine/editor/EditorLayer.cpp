@@ -157,6 +157,7 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
     }
 
     bool requestSave = false;
+    playing_ = frameInfo.playing;
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->Pos);
     ImGui::SetNextWindowSize(viewport->Size);
@@ -173,7 +174,7 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
 
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
-            requestSave = ImGui::MenuItem("Save Scene", "Ctrl+S");
+            requestSave = ImGui::MenuItem("Save Scene", "Ctrl+S", false, !playing_);
             ImGui::Separator();
             if (ImGui::MenuItem("Exit")) {
                 glfwSetWindowShouldClose(window_, GLFW_TRUE);
@@ -181,6 +182,7 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("GameObject")) {
+            ImGui::BeginDisabled(playing_);
             if (ImGui::BeginMenu("Create Shape")) {
                 for (std::size_t i = 0; i < rendering::PrimitiveShapeNames.size(); ++i) {
                     if (ImGui::MenuItem(rendering::PrimitiveShapeNames[i].data())) {
@@ -188,6 +190,25 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
                     }
                 }
                 ImGui::EndMenu();
+            }
+            ImGui::EndDisabled();
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Simulation")) {
+            if (ImGui::MenuItem("Play", nullptr, false, !playing_)) runtimeCommand_ = RuntimeCommand::Play;
+            if (ImGui::MenuItem(frameInfo.paused ? "Resume" : "Pause", nullptr, false,
+                                playing_ && !frameInfo.replayFinished)) {
+                runtimeCommand_ = frameInfo.paused ? RuntimeCommand::Resume : RuntimeCommand::Pause;
+            }
+            if (ImGui::MenuItem("Step (1/120 s)", nullptr, false, frameInfo.paused &&
+                                !frameInfo.replayFinished)) {
+                runtimeCommand_ = RuntimeCommand::Step;
+            }
+            if (ImGui::MenuItem("Stop", nullptr, false, playing_)) runtimeCommand_ = RuntimeCommand::Stop;
+            ImGui::Separator();
+            if (ImGui::MenuItem("Record Input and Play", nullptr, false, !playing_)) runtimeCommand_ = RuntimeCommand::Record;
+            if (ImGui::MenuItem("Replay Input and Play", nullptr, false, !playing_)) {
+                runtimeCommand_ = RuntimeCommand::Replay;
             }
             ImGui::EndMenu();
         }
@@ -213,7 +234,7 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
     }
     ImGui::End();
 
-    if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
+    if (!playing_ && ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
         requestSave = true;
     }
     if (requestSave) {
@@ -221,7 +242,9 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
     }
 
     if (showHierarchy_) {
+        ImGui::BeginDisabled(playing_);
         DrawHierarchy(world);
+        ImGui::EndDisabled();
     }
     if (showScene_) {
         DrawScene(world, sceneTexture, renderer, frameInfo.deltaSeconds);
@@ -231,7 +254,9 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
         gizmoActiveAxis_ = -1;
     }
     if (showInspector_) {
+        ImGui::BeginDisabled(playing_);
         DrawInspector(world);
+        ImGui::EndDisabled();
     }
     if (showProject_) {
         DrawProjectBrowser();
@@ -243,19 +268,21 @@ void EditorLayer::Draw(const EditorFrameInfo& frameInfo, ecs::ECSWorld& world, s
         DrawDebugOverlay(frameInfo, serializer, inputSystem, inputReplay);
     }
 
-    if (deleteSelected_) {
+    if (deleteSelected_ && !playing_) {
         DeleteSelectedEntity(world);
         deleteSelected_ = false;
     }
 
-    if (!saveStatus_.empty()) {
+    {
         ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x + 12.0F, viewport->Pos.y + viewport->Size.y - 36.0F),
                                 ImGuiCond_Always);
         ImGui::Begin("##EditorStatus", nullptr,
                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
                          ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                          ImGuiWindowFlags_NoNav);
-        ImGui::TextUnformatted(saveStatus_.c_str());
+        ImGui::Text("%s | Tick %zu", playing_ ? (frameInfo.paused ? "Paused" : "Playing") : "Edit", frameInfo.tick);
+        if (!frameInfo.runtimeStatus.empty()) ImGui::TextUnformatted(frameInfo.runtimeStatus.c_str());
+        if (!saveStatus_.empty()) ImGui::TextUnformatted(saveStatus_.c_str());
         ImGui::End();
     }
 
@@ -287,6 +314,11 @@ void EditorLayer::DrawDebugOverlay(const EditorFrameInfo& frameInfo, scene::Scen
                 frameSeconds > 0.000001F ? 1.0F / frameSeconds : 0.0F);
     ImGui::Text("Rolling average (%zu frames): %.2f ms", frameTimeCount_, averageFrameSeconds * 1000.0F);
 
+    ImGui::PlotLines("##FrameTimes", frameTimeHistory_.data(), static_cast<int>(frameTimeCount_),
+                     frameTimeCount_ == frameTimeHistory_.size() ? static_cast<int>(frameTimeCursor_) : 0,
+                     "Frame time (seconds)", 0.0F, 0.04F, ImVec2(-1.0F, 60.0F));
+    ImGui::Text("Simulation %.2f ms | %zu steps this frame | 120 Hz",
+                frameInfo.simulationMilliseconds, frameInfo.simulationSteps);
     ImGui::Separator();
     // Show action state and bindings together so a strange value can be traced to its source.
     const std::vector<std::string> actionNames = inputSystem.ActionNames();
@@ -333,30 +365,15 @@ void EditorLayer::DrawDebugOverlay(const EditorFrameInfo& frameInfo, scene::Scen
     // Keep one obvious replay path for the first version; each new recording replaces the previous one.
     const std::string latestReplayPath = (assetRoot_ / "replays" / "latest.axreplay").string();
     ImGui::TextWrapped("File: %s", latestReplayPath.c_str());
-    if (inputReplay.Mode() == input::InputReplayMode::Idle) {
-        if (ImGui::Button("Record Input Replay")) {
-            if (inputReplay.StartRecording(latestReplayPath)) {
-                Log("Recording fixed-step input to " + latestReplayPath);
-            }
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Play Latest Replay")) {
-            if (inputReplay.StartPlayback(latestReplayPath)) {
-                Log("Playing fixed-step input from " + latestReplayPath);
-            }
-        }
-    } else if (inputReplay.Mode() == input::InputReplayMode::Recording) {
-        ImGui::Text("Recording frame %llu", static_cast<unsigned long long>(inputReplay.FrameIndex()));
-        if (ImGui::Button("Stop Recording")) {
-            if (inputReplay.StopRecording()) {
-                Log("Saved input replay to " + latestReplayPath);
-            }
-        }
-    } else {
-        ImGui::Text("Playback frame %llu", static_cast<unsigned long long>(inputReplay.FrameIndex()));
-        if (ImGui::Button("Stop Playback")) {
-            inputReplay.StopPlayback();
-        }
+    ImGui::BeginDisabled(playing_);
+    if (ImGui::Button("Record Input Replay")) runtimeCommand_ = RuntimeCommand::Record;
+    ImGui::SameLine();
+    if (ImGui::Button("Play Latest Replay")) runtimeCommand_ = RuntimeCommand::Replay;
+    ImGui::EndDisabled();
+    if (inputReplay.Mode() != input::InputReplayMode::Idle) {
+        ImGui::Text("%s frame %llu", frameInfo.recording ? "Recording" : "Playback",
+                    static_cast<unsigned long long>(inputReplay.FrameIndex()));
+        if (ImGui::Button("Stop Replay Session")) runtimeCommand_ = RuntimeCommand::Stop;
     }
     if (!inputReplay.LastError().empty()) {
         ImGui::TextColored(ImVec4(1.0F, 0.38F, 0.35F, 1.0F), "%s", inputReplay.LastError().c_str());
@@ -379,6 +396,10 @@ int EditorLayer::SceneViewportHeight() const { return sceneViewportHeight_; }
 bool EditorLayer::WantsKeyboardCapture() const { return initialized_ && ImGui::GetIO().WantCaptureKeyboard; }
 
 bool EditorLayer::WantsMouseCapture() const { return initialized_ && ImGui::GetIO().WantCaptureMouse; }
+
+RuntimeCommand EditorLayer::ConsumeRuntimeCommand() {
+    return std::exchange(runtimeCommand_, RuntimeCommand::None);
+}
 
 void EditorLayer::BuildDefaultLayout(unsigned int dockspaceId, float width, float height) {
     ImGui::DockBuilderRemoveNode(dockspaceId);
@@ -665,7 +686,7 @@ void EditorLayer::DrawScene(ecs::ECSWorld& world, unsigned int sceneTexture, ren
         renderer.MoveCamera(0.0F, -io.MouseDelta.x * 0.02F, io.MouseDelta.y * 0.02F, 0.1F);
     }
 
-    auto* transform = selectedEntity_ != 0U && world.IsAlive(selectedEntity_)
+    auto* transform = !playing_ && selectedEntity_ != 0U && world.IsAlive(selectedEntity_)
                           ? world.GetComponent<scene::TransformComponent>(selectedEntity_)
                           : nullptr;
     if (transform == nullptr) {

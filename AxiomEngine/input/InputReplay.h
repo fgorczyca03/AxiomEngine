@@ -15,15 +15,16 @@ enum class InputReplayMode : unsigned char { Idle, Recording, Playback };
 // Records named input actions rather than raw keys, so replays follow the active action map.
 class InputReplay {
   public:
-    bool StartRecording(const std::string& path);
+    bool StartRecording(const std::string& path, float fixedStep = 1.0F / 120.0F);
     bool StopRecording();
-    bool StartPlayback(const std::string& path);
+    bool StartPlayback(const std::string& path, float expectedFixedStep = 1.0F / 120.0F);
     void StopPlayback();
 
     // Call these from the fixed-step loop so catch-up frames are recorded and replayed consistently.
     bool RecordFixedStep(const InputSystem& input);
     bool ApplyNextFixedStep(InputSystem& input);
 
+    [[nodiscard]] float FixedStep() const { return fixedStep_; }
     [[nodiscard]] InputReplayMode Mode() const { return mode_; }
     [[nodiscard]] std::uint64_t FrameIndex() const { return frameIndex_; }
     [[nodiscard]] const std::string& Path() const { return path_; }
@@ -33,6 +34,7 @@ class InputReplay {
     void StopStreams();
     void SetError(std::string message);
 
+    float fixedStep_{1.0F / 120.0F};
     InputReplayMode mode_{InputReplayMode::Idle};
     std::ifstream input_{};
     std::ofstream output_{};

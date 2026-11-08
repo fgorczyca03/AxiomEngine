@@ -19,6 +19,7 @@ using Signature = std::bitset<MaxComponents>;
 class ECSWorld {
   public:
     ECSWorld() = default;
+    [[nodiscard]] ECSWorld Clone() const;
 
     Entity CreateEntity();
     void DestroyEntity(Entity entity);
@@ -38,6 +39,7 @@ class ECSWorld {
     struct IStorage {
         virtual ~IStorage() = default;
         virtual std::unique_ptr<IStorage> CloneEmpty() const = 0;
+        virtual std::unique_ptr<IStorage> Clone() const = 0;
         virtual void MoveRowTo(std::size_t src, IStorage& dst) = 0;
         virtual void SwapAndPop(std::size_t row) = 0;
     };
@@ -45,6 +47,7 @@ class ECSWorld {
     template <typename T> struct Storage final : IStorage {
         std::vector<T> values{};
         std::unique_ptr<IStorage> CloneEmpty() const override { return std::make_unique<Storage<T>>(); }
+        std::unique_ptr<IStorage> Clone() const override { return std::make_unique<Storage<T>>(*this); }
         void MoveRowTo(std::size_t src, IStorage& dst) override {
             static_cast<Storage<T>&>(dst).values.push_back(std::move(values[src]));
         }

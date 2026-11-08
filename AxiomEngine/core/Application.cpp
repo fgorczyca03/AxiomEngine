@@ -1,5 +1,6 @@
 #include "AxiomEngine/core/Application.h"
 
+#include "AxiomEngine/core/PlaySession.h"
 #include "AxiomEngine/physics/Components.h"
 #include "AxiomEngine/profiling/Profiling.h"
 #include "AxiomEngine/rendering/Components.h"
@@ -7,6 +8,7 @@
 
 #include <GLFW/glfw3.h>
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <iostream>
 
@@ -124,22 +126,78 @@ int Application::Run() {
 
     constexpr float fixedStep = 1.0F / 120.0F;
     float accumulator = 0.0F;
+    PlaySession play;
+    auto& replay = inputReplay_;
+    bool replayFinished = false;
+    input::InputSystem simulationInput;
+    std::string runtimeStatus;
+    const std::string replayPath = std::string(AXIOM_ASSET_ROOT) + "/replays/latest.axreplay";
+    time_.Tick();
 
     while (!renderer_.ShouldClose()) {
         AXIOM_PROFILE_FRAME_MARK();
 
         renderer_.PollEvents();
+        time_.Tick();
+        bool resetAccumulator = false;
+        const auto startPlay = [&]() {
+            if (!play.Start(world_)) return;
+            scripting_.Reset();
+            simulationInput = input_;
+            simulationInput.ApplyActionStates({});
+            resetAccumulator = true;
+            replayFinished = false;
+        };
+        using editor::RuntimeCommand;
+        switch (editor_.ConsumeRuntimeCommand()) {
+            case RuntimeCommand::Play:
+                startPlay();
+                runtimeStatus.clear();
+                break;
+            case RuntimeCommand::Record:
+                if (!play.IsPlaying() && replay.StartRecording(replayPath, fixedStep)) {
+                    startPlay();
+                    runtimeStatus = "Recording fixed-step input. Stop to finish.";
+                } else {
+                    runtimeStatus = replay.LastError();
+                }
+                break;
+            case RuntimeCommand::Replay:
+                if (!play.IsPlaying() && replay.StartPlayback(replayPath, fixedStep)) {
+                    startPlay();
+                    runtimeStatus = "Replaying input from the current edit scene.";
+                } else {
+                    runtimeStatus = replay.LastError();
+                }
+                break;
+            case RuntimeCommand::Pause: play.SetPaused(true); resetAccumulator = true; break;
+            case RuntimeCommand::Resume: play.SetPaused(false); resetAccumulator = true; break;
+            case RuntimeCommand::Step: play.RequestStep(); break;
+            case RuntimeCommand::Stop:
+                replay.StopRecording();
+                replay.StopPlayback();
+                if (play.Stop(world_)) scripting_.Reset();
+                renderer_.SetCursorCaptured(false);
+                resetAccumulator = true;
+                replayFinished = false;
+                runtimeStatus = "Stopped. Restored the edit scene.";
+                break;
+            case RuntimeCommand::None: break;
+        }
+        if (resetAccumulator) accumulator = 0.0F;
         input_.Update();
 
         input::InputSnapshot snapshot{};
-        snapshot.SetKeyState(GLFW_KEY_A, renderer_.IsKeyPressed(GLFW_KEY_A));
-        snapshot.SetKeyState(GLFW_KEY_D, renderer_.IsKeyPressed(GLFW_KEY_D));
-        snapshot.SetKeyState(GLFW_KEY_W, renderer_.IsKeyPressed(GLFW_KEY_W));
-        snapshot.SetKeyState(GLFW_KEY_S, renderer_.IsKeyPressed(GLFW_KEY_S));
-        snapshot.SetKeyState(GLFW_KEY_Q, renderer_.IsKeyPressed(GLFW_KEY_Q));
-        snapshot.SetKeyState(GLFW_KEY_E, renderer_.IsKeyPressed(GLFW_KEY_E));
-        snapshot.SetKeyState(GLFW_KEY_F1, renderer_.IsKeyPressed(GLFW_KEY_F1));
+        for (int key = GLFW_KEY_SPACE; key <= GLFW_KEY_LAST; ++key) {
+            snapshot.SetKeyState(key, renderer_.IsKeyPressed(key));
+        }
         glm::vec2 mouseDelta = renderer_.MouseDelta();
+        snapshot.mouseAxisState[0] = mouseDelta.x;
+        snapshot.mouseAxisState[1] = mouseDelta.y;
+        for (int axis = 0; axis <= GLFW_GAMEPAD_AXIS_LAST; ++axis) snapshot.gamepadAxisState[axis] = renderer_.GamepadAxis(axis);
+        for (int button = 0; button <= GLFW_GAMEPAD_BUTTON_LAST; ++button) {
+            snapshot.gamepadButtonState[button] = renderer_.IsGamepadButtonPressed(button);
+        }
         if (editor_.WantsKeyboardCapture()) {
             snapshot.ClearKeyState();
         }
@@ -147,53 +205,56 @@ int Application::Run() {
             snapshot.mouseAxisState.clear();
             mouseDelta = glm::vec2(0.0F);
         }
-        const bool replayingInput = inputReplay_.Mode() == input::InputReplayMode::Playback;
-        // During playback the recorded actions drive gameplay; live keys only control the editor.
-        if (!replayingInput) {
-            input_.EvaluateBindings(snapshot);
-        }
+        input_.EvaluateBindings(snapshot);
 
-        if (!replayingInput && input_.WasPressed("ToggleCameraLook")) {
+        if (input_.WasPressed("ToggleCameraLook")) {
             renderer_.SetCursorCaptured(!renderer_.IsCursorCaptured());
             mouseDelta = glm::vec2(0.0F);
         }
 
-        time_.Tick();
         const float cameraDeltaSeconds =
             static_cast<float>(std::clamp(time_.DeltaSeconds(), 0.0, 0.1));
-        if (!replayingInput && renderer_.IsCursorCaptured()) {
+        if (renderer_.IsCursorCaptured()) {
             renderer_.MoveCamera(input_.Value("CameraForward"),
                                  input_.Value("CameraRight"),
                                  input_.Value("CameraVertical"),
                                  cameraDeltaSeconds);
             renderer_.RotateCamera(mouseDelta.x, mouseDelta.y);
         }
-        accumulator += static_cast<float>(time_.DeltaSeconds());
+        if (play.IsPlaying() && !play.IsPaused() && !resetAccumulator) {
+            accumulator += static_cast<float>(std::clamp(time_.DeltaSeconds(), 0.0, 0.25));
+        } else if (play.IsPaused()) {
+            accumulator = play.ShouldStep() ? fixedStep : 0.0F;
+        }
 
-        // Simulation catches up in fixed slices; rendering and editor input remain frame-rate driven.
-        while (accumulator >= fixedStep) {
-            // Consume exactly one recorded frame for each simulation step, including catch-up steps.
-            if (inputReplay_.Mode() == input::InputReplayMode::Playback &&
-                !inputReplay_.ApplyNextFixedStep(input_)) {
-                const std::string replayError = inputReplay_.LastError();
-                inputReplay_.StopPlayback();
-                if (!replayError.empty()) {
-                    std::cerr << "Axiom input replay stopped: " << replayError << '\n';
+        const auto simulationStart = std::chrono::steady_clock::now();
+        std::size_t simulationSteps = 0;
+        while (play.ShouldStep() && accumulator >= fixedStep) {
+            if (replay.Mode() == input::InputReplayMode::Playback) {
+                if (!replay.ApplyNextFixedStep(simulationInput)) {
+                    play.SetPaused(true);
+                    replayFinished = true;
+                    runtimeStatus = replay.LastError().empty()
+                        ? "Replay complete. Stop to restore the edit scene." : replay.LastError();
+                    accumulator = 0.0F;
+                    break;
                 }
-                input_.EvaluateBindings(snapshot);
+            } else {
+                simulationInput.Update();
+                simulationInput.EvaluateBindings(snapshot);
+                if (replay.Mode() == input::InputReplayMode::Recording && !replay.RecordFixedStep(simulationInput)) {
+                    runtimeStatus = replay.LastError();
+                    play.SetPaused(true);
+                    break;
+                }
             }
-            if (inputReplay_.Mode() == input::InputReplayMode::Recording &&
-                !inputReplay_.RecordFixedStep(input_)) {
-                std::cerr << "Axiom input replay stopped: " << inputReplay_.LastError() << '\n';
-            }
-
-            // These dependencies encode the data flow: physics moves bodies, scripts edit transforms,
-            // then the scene graph publishes the final world matrices for rendering.
+            // Physics and scripts finish before world transforms are published for rendering.
             const std::size_t physicsJob =
                 jobs_.Enqueue({"PhysicsStep", JobPriority::High, [&]() { physics_.Step(world_, fixedStep); }});
 
-            const std::size_t scriptJob = jobs_.Enqueue(
-                {"ScriptUpdate", JobPriority::Normal, [&]() { scripting_.Update(world_, fixedStep); }, {physicsJob}});
+            const std::size_t scriptJob = jobs_.Enqueue({
+                "ScriptUpdate", JobPriority::Normal,
+                [&]() { scripting_.Update(world_, fixedStep, &simulationInput); }, {physicsJob}});
 
             jobs_.Enqueue({
                 "TransformResolve",
@@ -210,7 +271,13 @@ int Application::Run() {
             }
 
             accumulator -= fixedStep;
+            play.DidStep();
+            ++simulationSteps;
         }
+        const float simulationMilliseconds = std::chrono::duration<float, std::milli>(
+            std::chrono::steady_clock::now() - simulationStart).count();
+        // Edit-mode gizmos must still update world matrices while simulation is stopped.
+        sceneGraph_.UpdateTransforms();
 
         if (!renderer_.ResizeSceneViewport(editor_.SceneViewportWidth(), editor_.SceneViewportHeight())) {
             std::cerr << "Axiom scene viewport resize failed.\n";
@@ -220,13 +287,24 @@ int Application::Run() {
         renderer_.RenderWorld(world_);
 
         editor_.BeginFrame();
-        editor_.Draw({static_cast<float>(time_.DeltaSeconds())}, world_, sceneSerializer_, renderer_.SceneTexture(),
-                     renderer_, input_, inputReplay_);
+        editor_.Draw({.deltaSeconds = static_cast<float>(time_.DeltaSeconds()),
+                      .simulationMilliseconds = simulationMilliseconds,
+                      .simulationSteps = simulationSteps,
+                      .tick = play.Tick(),
+                      .playing = play.IsPlaying(),
+                      .paused = play.IsPaused(),
+                      .recording = (replay.Mode() == input::InputReplayMode::Recording),
+                      .replayFinished = replayFinished,
+                      .runtimeStatus = runtimeStatus}, world_, sceneSerializer_, renderer_.SceneTexture(),
+                     renderer_, play.IsPlaying() ? simulationInput : input_, replay);
         editor_.EndFrame();
 
         renderer_.EndFrame();
     }
 
+    replay.StopRecording();
+    replay.StopPlayback();
+    if (play.Stop(world_)) scripting_.Reset();
     editor_.Shutdown();
     renderer_.Shutdown();
     return 0;

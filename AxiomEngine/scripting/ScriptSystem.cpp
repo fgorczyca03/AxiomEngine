@@ -90,7 +90,29 @@ bool ScriptSystem::LoadScript(ecs::Entity entity, const std::string& scriptPath)
     return true;
 }
 
-void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
+void ScriptSystem::Reset() {
+    instances_.clear();
+    errors_.clear();
+    nextInstanceId_ = 1;
+    // Recreate the VM so shared Lua globals and random state cannot leak between runs.
+    lua_ = sol::state{};
+    lua_.open_libraries(sol::lib::base, sol::lib::math);
+}
+
+void ScriptSystem::Update(ecs::ECSWorld& world, float dt, const input::InputSystem* input) {
+    auto inputTable = lua_.create_table();
+    if (input != nullptr) {
+        std::vector<input::NamedInputAction> states;
+        input->CopyActionStates(states);
+        for (const auto& sample : states) {
+            auto action = lua_.create_table();
+            action["value"] = sample.state.value;
+            action["pressed"] = sample.state.pressed;
+            action["justPressed"] = input->WasPressed(sample.name);
+            action["justReleased"] = input->WasReleased(sample.name);
+            inputTable[sample.name] = action;
+        }
+    }
     for (auto& [_, instance] : instances_) {
         instance.activeThisUpdate = false;
     }
@@ -163,7 +185,7 @@ void ScriptSystem::Update(ecs::ECSWorld& world, float dt) {
             table["scaleY"] = transform.local.scale.y;
             table["scaleZ"] = transform.local.scale.z;
 
-            const sol::protected_function_result result = instance->second.update(entity, dt, table);
+            const sol::protected_function_result result = instance->second.update(entity, dt, table, inputTable);
             if (!result.valid()) {
                 const sol::error scriptError = result;
                 RecordError("update", "Entity " + std::to_string(entity) + " (" + script.scriptPath + "): " +

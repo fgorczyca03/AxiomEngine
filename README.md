@@ -67,9 +67,16 @@ Run:
 ./build/AxiomRuntime
 ```
 
+Build and run the headless runtime regression checks:
+
+```bash
+cmake --build build --target AxiomRuntimeTests
+ctest --test-dir build -R '^AxiomRuntimeTests$' --output-on-failure
+```
+
 ## Editor workspace
 
-The runtime opens a docked editor workspace. Use **GameObject → Create Shape**
+The runtime opens a docked editor workspace in Edit mode. Use **GameObject → Create Shape**
 or the **+ Add Shape** button in Hierarchy to add a cube, sphere, circle, pyramid,
 cone, cylinder, or bean. Select an object in Hierarchy to change its shape and
 edit its position, rotation, scale, and rigid body values in Inspector. In the
@@ -81,8 +88,9 @@ Add an object script from Inspector with **+ Add Script**, then choose a Lua fil
 under `Sandbox/scripts`. Use **Create Script** in Project to make a file, select
 it to edit the source, and save it with **Save Lua Script**. Changed Lua files
 reload automatically. Each attached object gets its own script state, so local
-variables stay independent even when objects use the same file. Script errors are
-shown in Inspector and reported in the terminal; the engine disables a script
+variables stay independent even when objects use the same file. Scripts and physics
+run during Play. Script errors are shown in Inspector and reported in the terminal;
+the engine disables a script
 after an error until it is re-enabled.
 
 Scripts define `Update(entity, dt, transform)`, called once per fixed simulation
@@ -97,7 +105,7 @@ function Update(entity, dt, transform)
 end
 ```
 
-Scene shows the live render. Project browses files in `Sandbox`; selecting Lua
+Scene shows the current scene. Project browses files in `Sandbox`; selecting Lua
 files opens the built-in source editor. **File → Save Scene** or **Ctrl+S** writes
 the current scene, including script attachments, to
 `Sandbox/scenes/default.axscene`. The panel arrangement is saved in the ignored
@@ -109,14 +117,56 @@ to look around. Hold **Q/E** for vertical movement, use **middle-drag** to pan,
 scroll to zoom, and hold **Shift** to move faster. Press **F1** to capture the
 cursor for the separate free-fly camera mode.
 
-Open **Window → Debug Overlay** to see current and rolling frame times, mapped
-input actions with their bindings and active values, and scene validation warnings
-from the most recent load. The overlay can record or play a fixed-step input
-replay; recordings are saved to `Sandbox/replays/latest.axreplay` and a new
-recording replaces that file.
-
 The default scene attaches `Sandbox/scripts/rotate.lua` to its cube as a small
 example. Remove or disable it in Inspector if you want a stationary object.
+
+### Play and debug
+
+Use **Simulation → Play** to run scripts and physics at 120 fixed steps per second.
+**Pause** suspends simulation, **Step (1/120 s)** advances a paused scene by one
+tick, and **Resume** continues. **Stop** restores the complete pre-play scene,
+including unsaved edits, entity IDs, hierarchy, and component values. Each Play
+starts fresh Lua state. Scene editing and saving are disabled during Play.
+
+Open **Window → Debug Overlay** to inspect frame-time history, average FPS,
+simulation time and step counts, action values and bindings, input transitions,
+and validation warnings from the last scene load. Legacy V1 recordings remain
+readable at 120 Hz; new V2 captures also store the fixed timestep.
+
+### Fixed-step input recording and replay
+
+Choose **Simulation → Record Input and Play**, interact with the scene, then
+**Stop** to finish recording and restore the edit scene. **Replay Input and Play**
+feeds those action values into simulation one tick at a time and pauses at the
+last recorded tick. Use **Stop** to return to Edit mode. Pause and single-step
+also work while recording and replaying.
+
+Recordings are automatically saved to `Sandbox/replays/latest.axreplay`
+(ignored by Git); starting a new recording replaces that file. **Replay Input and
+Play** loads it again, including after restarting the engine. The existing replay
+buttons in Debug Overlay use the same Play/Stop lifecycle. Captures store the fixed timestep
+and exact resolved action values after deadzone/curve processing. Playback
+restores press/release transitions independently of render frame rate and
+live device input; recordings with a different timestep are rejected. Editor
+camera navigation remains live during replay.
+
+Lua scripts can accept an optional fourth `input` argument, keyed by action name:
+
+```lua
+function Update(entity, dt, transform, input)
+    transform.x = transform.x + input.CameraRight.value * dt
+    if input.ToggleCameraLook.justPressed then
+        transform.y = transform.y + 1
+    end
+end
+```
+
+Each action has `value`, `pressed`, `justPressed`, and `justReleased` fields.
+Configure bindings in `Sandbox/input/default.axinput` before launching the engine.
+Recordings contain input streams, so replay uses the current edit scene and
+scripts. Reproduce a run with the same scene, content, and deterministic script
+logic; captures do not store scene snapshots or guarantee cross-platform physics
+determinism.
 
 ## Desktop installation (Linux)
 
@@ -178,7 +228,6 @@ If you reconfigure often, `--fresh` avoids stale cache variables from prior buil
 - Parallelize independent simulation and editor work on the worker-thread job backend.
 - Evolve frame-graph resource lifetime/transient planning.
 - Build incremental, dependency-aware asset import recipes.
-- Add a play-in-editor loop.
 - Add nested prefab support with override workflows.
 
 ### Long term (production readiness)

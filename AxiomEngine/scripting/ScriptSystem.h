@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AxiomEngine/ecs/ECSWorld.h"
+#include "AxiomEngine/input/InputSystem.h"
 
 #include <sol/sol.hpp>
 
@@ -22,7 +23,8 @@ class ScriptSystem {
 
     ScriptSystem();
     void SetAssetRoot(std::filesystem::path assetRoot);
-    void Update(ecs::ECSWorld& world, float dt);
+    void Update(ecs::ECSWorld& world, float dt, const input::InputSystem* input = nullptr);
+    void Reset();
 
     [[nodiscard]] bool HasErrors() const;
     [[nodiscard]] const std::vector<ScriptError>& Errors() const;

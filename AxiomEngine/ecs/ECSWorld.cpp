@@ -2,6 +2,25 @@
 
 namespace axiom::ecs {
 
+ECSWorld ECSWorld::Clone() const {
+    ECSWorld copy;
+    copy.meta_ = meta_;
+    copy.locations_ = locations_;
+    copy.free_ = free_;
+    copy.nextEntity_ = nextEntity_;
+    copy.nextComponentId_ = nextComponentId_;
+    for (const auto& archetype : archetypes_) {
+        Archetype cloned;
+        cloned.signature = archetype.signature;
+        cloned.entities = archetype.entities;
+        for (const auto& [id, column] : archetype.columns) {
+            cloned.columns[id] = column->Clone();
+        }
+        copy.archetypes_.push_back(std::move(cloned));
+    }
+    return copy;
+}
+
 Entity ECSWorld::CreateEntity() {
     if (archetypes_.empty()) {
         archetypes_.push_back({});
